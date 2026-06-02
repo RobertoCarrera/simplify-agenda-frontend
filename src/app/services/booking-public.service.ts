@@ -1,6 +1,6 @@
 import { Injectable, inject } from "@angular/core";
 import { HttpClient, HttpParams } from "@angular/common/http";
-import { Observable, catchError, throwError } from "rxjs";
+import { Observable, catchError, throwError, of } from "rxjs";
 import { map } from "rxjs/operators";
 import { environment } from "../../environments/environment";
 
@@ -71,6 +71,18 @@ export interface BookingResponse {
   success: boolean;
   booking_id?: string;
   message?: string;
+}
+
+export interface FilterVisibilityItem {
+  id: string;
+  label: string;
+  icon: string;
+  sort_order: number;
+  visible: boolean;
+}
+
+export interface FilterVisibilityResponse {
+  filters: FilterVisibilityItem[];
 }
 
 // ============================================================================
@@ -234,5 +246,37 @@ export class BookingPublicService {
         return throwError(() => new Error("Failed to load services"));
       }),
     );
+  }
+
+  /**
+   * Fetch company filter visibility settings
+   * Calls the Supabase edge function get-company-filter-visibility
+   * in unauthenticated mode with company_id query param.
+   *
+   * Returns an empty array on error or when no config exists —
+   * empty array signals "show all filters" (current behavior).
+   */
+  getFilterVisibility(
+    companyId: string,
+  ): Observable<FilterVisibilityItem[]> {
+    const url = `${environment.supabaseFunctionsUrl}/get-company-filter-visibility?company_id=${companyId}`;
+
+    return this.http
+      .get<FilterVisibilityResponse>(url, {
+        headers: {
+          apikey: environment.supabaseAnonKey,
+          Authorization: `Bearer ${environment.supabaseAnonKey}`,
+        },
+      })
+      .pipe(
+        map((res) => res.filters || []),
+        catchError((err) => {
+          console.error(
+            "[FilterVisibility] Error fetching, showing all filters:",
+            err,
+          );
+          return of([]); // Empty → show all filters (default behavior)
+        }),
+      );
   }
 }

@@ -8,6 +8,7 @@ import {
   Company,
   Service,
   Professional,
+  FilterVisibilityItem,
 } from "../../services/booking-public.service";
 import { applyBrandingColors } from "../../shared/branding.utils";
 import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
@@ -22,6 +23,12 @@ interface DurationGroup {
   min: number;
   max: number;
   color: string;
+}
+
+interface JourneyTabDef {
+  id: Journey;
+  label: string;
+  svgPaths: string;
 }
 
 @Component({
@@ -75,44 +82,17 @@ interface DurationGroup {
 
           <!-- Journey tabs -->
           <div class="journey-tabs">
-          @if (isTabEnabled('services')) {
-            <button
-              class="journey-tab"
-              [class.active]="activeTab() === 'services'"
-              (click)="setTab('services')"
-            >
-              <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-              </svg>
-              Por Servicio
-            </button>
-          }
-          @if (isTabEnabled('professionals')) {
-            <button
-              class="journey-tab"
-              [class.active]="activeTab() === 'professionals'"
-              (click)="setTab('professionals')"
-            >
-              <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-              </svg>
-              Por Profesional
-            </button>
-          }
-          @if (isTabEnabled('duration')) {
-            <button
-              class="journey-tab"
-              [class.active]="activeTab() === 'duration'"
-              (click)="setTab('duration')"
-            >
-              <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-              Por Duración
-            </button>
+          @for (tab of visibleTabs(); track tab.id) {
+          <button
+            class="journey-tab"
+            [class.active]="activeTab() === tab.id"
+            (click)="setTab(tab.id)"
+          >
+            <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" [attr.d]="tab.svgPaths"/>
+            </svg>
+            {{ tab.label }}
+          </button>
           }
           </div>
         </div>
@@ -689,6 +669,38 @@ export class CatalogComponent implements OnInit {
   private deepLinkProfessionalId: string | null = null;
   private deepLinkProfessionalSlug: string | null = null;
 
+  /** Visibility filter IDs from Supabase. Empty Set = no config loaded yet or "show all". */
+  visibleFilterIds = signal<Set<string>>(new Set());
+
+  /** All available journey tab definitions. */
+  private readonly allJourneyTabs: JourneyTabDef[] = [
+    {
+      id: "services",
+      label: "Por Servicio",
+      svgPaths:
+        "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
+    },
+    {
+      id: "professionals",
+      label: "Por Profesional",
+      svgPaths:
+        "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z",
+    },
+    {
+      id: "duration",
+      label: "Por Duración",
+      svgPaths: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+    },
+  ];
+
+  /** Journey tabs filtered by visibility config. Empty config → show all. */
+  visibleTabs = computed(() => {
+    const visIds = this.visibleFilterIds();
+    // Empty Set means: not yet loaded OR error OR no visibility rows → show all
+    if (visIds.size === 0) return this.allJourneyTabs;
+    return this.allJourneyTabs.filter((t) => visIds.has(t.id));
+  });
+
   readonly durationGroups: DurationGroup[] = [
     { label: "Sesiones rápidas",  desc: "30 min o menos",  icon: "⚡", min: 0,  max: 30,       color: "#10B981" },
     { label: "Sesiones estándar", desc: "31 a 60 min",     icon: "⏱", min: 31, max: 60,       color: "#3B82F6" },
@@ -740,6 +752,9 @@ export class CatalogComponent implements OnInit {
   }
 
   setTab(tab: Journey) {
+    // Guard: don't allow switching to a hidden tab
+    const visible = this.visibleTabs();
+    if (!visible.some((t) => t.id === tab)) return;
     this.activeTab.set(tab);
     this.selectedProfessional.set(null);
   }
@@ -811,9 +826,6 @@ export class CatalogComponent implements OnInit {
         }
 
         // Build professionals enriched with their services.
-        // The top-level professionals list may be empty (older deployed function),
-        // so we also extract professionals from the professional_services join
-        // embedded within each service and merge both sources.
         const topLevel = res.professionals ?? [];
         const profMap = new Map<string, Professional>();
         for (const svc of (res.services ?? [])) {
@@ -825,15 +837,12 @@ export class CatalogComponent implements OnInit {
             profMap.get(p.id)!.services!.push(svc);
           }
         }
-        // Prefer the enriched set; fall back to the raw top-level list when
-        // no service has professionals attached.
         const professionals = profMap.size > 0
           ? Array.from(profMap.values())
           : topLevel;
         this.professionals.set(professionals);
 
         // Deep-link: if a professional slug or id was in the URL, auto-select them
-        // Slug takes precedence (new format), then UUID fallback
         if (this.deepLinkProfessionalSlug) {
           const target = professionals.find(p => p.slug === this.deepLinkProfessionalSlug);
           if (target) {
@@ -851,11 +860,45 @@ export class CatalogComponent implements OnInit {
           this.deepLinkProfessionalId = null;
         }
 
+        // Fetch filter visibility config for this company
+        this.fetchFilterVisibility(res.company.id);
+
         this.loading.set(false);
       },
       error: (err) => {
         this.error.set(err.message || "Error al cargar los servicios");
         this.loading.set(false);
+      },
+    });
+  }
+
+  /**
+   * Fetch company filter visibility from Supabase edge function.
+   * On success: populates visibleFilterIds with only the IDs marked visible.
+   * On error / no config: keeps visibleFilterIds empty → show all.
+   * If the currently active tab becomes hidden, auto-switch to first visible.
+   */
+  private fetchFilterVisibility(companyId: string): void {
+    this.bookingService.getFilterVisibility(companyId).subscribe({
+      next: (filters) => {
+        const visibleIds = new Set<string>(
+          filters.filter((f) => f.visible).map((f) => f.id),
+        );
+        this.visibleFilterIds.set(visibleIds);
+
+        // If active tab is now hidden, switch to first visible
+        if (visibleIds.size > 0 && !visibleIds.has(this.activeTab())) {
+          const firstVisible = this.allJourneyTabs.find((t) =>
+            visibleIds.has(t.id),
+          );
+          if (firstVisible) {
+            this.activeTab.set(firstVisible.id);
+          }
+        }
+      },
+      error: () => {
+        // Error → keep empty Set → show all tabs (default behavior)
+        // visibleFilterIds already defaults to empty Set, no action needed
       },
     });
   }

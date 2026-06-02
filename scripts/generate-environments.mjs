@@ -46,11 +46,16 @@ const bffBaseUrl =
   process.env.BFF_BASE_URL ||
   "https://lsntpezzhinnohggezxy.supabase.co/functions/v1/booking-public";
 
+const supabaseFunctionsUrl =
+  process.env.SUPABASE_FUNCTIONS_URL ||
+  "https://ufutyjbqfjrlzkprvyvs.supabase.co/functions/v1";
+
 const turnstileSiteKey = requireEnv("TURNSTILE_SITE_KEY");
 const supabaseAnonKey = requireEnv("SUPABASE_ANON_KEY");
 const bookingApiKey = requireEnv("BOOKING_API_KEY");
 
 const base = `  bffBaseUrl: "${bffBaseUrl}",
+  supabaseFunctionsUrl: "${supabaseFunctionsUrl}",
   turnstileSiteKey: "${turnstileSiteKey}",
   clientId: "simplifica-agenda-frontend",
   supabaseAnonKey: "${supabaseAnonKey}",
