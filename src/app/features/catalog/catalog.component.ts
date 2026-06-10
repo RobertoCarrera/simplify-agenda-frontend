@@ -637,6 +637,76 @@ interface JourneyTabDef {
       }
       .btn-primary { background: var(--color-primary); color: var(--color-primary-text); }
       .btn-primary:hover { background: var(--color-primary-hover); }
+
+      /* ── Mobile: full-width single column ── */
+      @media (max-width: 640px) {
+        .catalog-page {
+          padding: 0 0.75rem 4rem;
+        }
+        .catalog-hero {
+          padding: 1.25rem 0.75rem 0 0.75rem;
+          border-radius: 0.75rem;
+        }
+        .page-header { padding-top: 0.5rem; }
+        .page-header h1 { font-size: 1.25rem; }
+
+        .services-grid {
+          grid-template-columns: 1fr;
+          gap: 0.75rem;
+        }
+        .service-card {
+          width: 100%;
+          padding: 1rem;
+        }
+
+        .professionals-grid {
+          grid-template-columns: 1fr;
+          gap: 0.75rem;
+        }
+        .prof-card {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          text-align: left;
+          padding: 0.75rem;
+          gap: 0.75rem;
+        }
+        .prof-card-avatar-wrap {
+          width: 3rem;
+          height: 3rem;
+          aspect-ratio: auto;
+          flex-shrink: 0;
+          margin-bottom: 0;
+        }
+        .prof-card-info { text-align: left; flex: 1; min-width: 0; }
+        .prof-card-tags { justify-content: flex-start; }
+
+        .prof-detail-header {
+          padding: 1rem;
+          gap: 0.75rem;
+        }
+        .prof-detail-avatar,
+        .prof-detail-avatar-placeholder {
+          width: 3rem;
+          height: 3rem;
+        }
+        .prof-detail-name { font-size: 1.05rem; }
+
+        .sort-row {
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+        .sort-select {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .service-card-bottom {
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+        .service-card-info { min-width: 0; }
+      }
     `,
   ],
 })
