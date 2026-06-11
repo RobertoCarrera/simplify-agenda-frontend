@@ -291,21 +291,22 @@ import { applyBrandingColors } from "../../shared/branding.utils";
               <!-- Manual mode: show calendar -->
               <h2 class="step-title">Selecciona tu horario</h2>
 
-              @if (loadingAvailability()) {
-                <div class="availability-loading">
-                  <div class="spinner"></div>
-                  <p>Cargando disponibilidad...</p>
-                </div>
-              } @else {
-                <app-weekly-calendar
-                  [busyPeriods]="busyPeriods()"
-                  [serviceDuration]="service()?.duration_minutes ?? 30"
-                  [initialDate]="calendarInitialDate()"
-                  [loading]="loadingAvailability()"
-                  (slotSelected)="onSlotSelected($event)"
-                  (weekChanged)="onWeekChanged($event)"
-                />
-              }
+              <!--
+                The calendar component is ALWAYS mounted while the user
+                is on step 3. We pass [loading] to it so it can show a
+                spinner overlay during availability fetches WITHOUT being
+                recreated. If we wrapped the calendar in @if (loading())
+                here, the component would be destroyed and recreated on
+                every week nav, losing the user's weekStart.
+              -->
+              <app-weekly-calendar
+                [busyPeriods]="busyPeriods()"
+                [serviceDuration]="service()?.duration_minutes ?? 30"
+                [initialDate]="calendarInitialDate()"
+                [loading]="loadingAvailability()"
+                (slotSelected)="onSlotSelected($event)"
+                (weekChanged)="onWeekChanged($event)"
+              />
 
               <div id="cf-turnstile"></div>
 
