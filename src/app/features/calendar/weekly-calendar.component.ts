@@ -147,9 +147,13 @@ import { BusyPeriod } from "../../services/booking-public.service";
       }
 
       .week-label {
-        font-weight: var(--font-weight-semibold);
+        font-weight: var(--font-weight-bold);
         color: var(--color-text-primary);
-        font-size: var(--font-size-base);
+        font-size: var(--font-size-lg);
+        letter-spacing: 0.01em;
+        text-align: center;
+        flex: 1;
+        padding: 0 var(--space-3);
       }
 
       /* Day tabs */
@@ -348,15 +352,30 @@ export class WeeklyCalendarComponent implements OnInit, OnChanges {
     const end = new Date(start);
     end.setDate(start.getDate() + 4); // Friday
 
+    // When the week spans two months or two years, show the second one
+    // on the end date. Otherwise just the day.
+    const sameMonth = start.getMonth() === end.getMonth();
+    const sameYear = start.getFullYear() === end.getFullYear();
+
+    const monthFmt: Intl.DateTimeFormatOptions = sameMonth
+      ? { day: "numeric" }
+      : { day: "numeric", month: "short" };
+
+    const endFmt: Intl.DateTimeFormatOptions = sameYear
+      ? monthFmt
+      : { day: "numeric", month: "short", year: "numeric" };
+
     const startStr = start.toLocaleDateString("es-ES", {
       day: "numeric",
       month: "short",
     });
-    const endStr = end.toLocaleDateString("es-ES", {
-      day: "numeric",
-      month: "short",
-    });
-    return `${startStr} - ${endStr}`;
+    const endStr = end.toLocaleDateString("es-ES", endFmt);
+    const yearStr = end.getFullYear();
+
+    // "Lun 15 – Vie 19 jun · 2026"
+    const startDow = start.toLocaleDateString("es-ES", { weekday: "short" });
+    const endDow = end.toLocaleDateString("es-ES", { weekday: "short" });
+    return `${capitalize(startDow)} ${start.getDate()} – ${capitalize(endDow)} ${end.getDate()} ${end.toLocaleDateString("es-ES", { month: "short" })} · ${yearStr}`;
   });
 
   ngOnInit() {
@@ -444,4 +463,10 @@ export class WeeklyCalendarComponent implements OnInit, OnChanges {
       month: "long",
     });
   }
+}
+
+/** Capitalize first letter (Spanish day names come lowercase from toLocaleDateString) */
+function capitalize(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

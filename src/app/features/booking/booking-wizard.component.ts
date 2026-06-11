@@ -726,11 +726,11 @@ export class BookingWizardComponent implements OnInit {
   }
 
   selectMethodManual() {
-    // Show NEXT week (not current) so user sees future slots
+    // Start at the current week — user wants to see HOY's available slots,
+    // and can navigate forward if today's slots are taken.
     const currentWeekStart = this.availabilityService.getWeekStart(new Date());
-    const nextWeekStart = this.availabilityService.getNextWeek(currentWeekStart);
-    this.calendarInitialDate.set(nextWeekStart);
-    this.loadAvailability(nextWeekStart);
+    this.calendarInitialDate.set(currentWeekStart);
+    this.loadAvailability(currentWeekStart);
     this.step.set(3);
   }
 
