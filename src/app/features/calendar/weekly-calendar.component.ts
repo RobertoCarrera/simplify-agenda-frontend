@@ -9,6 +9,7 @@ import {
   inject,
   signal,
   computed,
+  effect,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { TranslocoModule } from "@jsverse/transloco";
@@ -451,6 +452,13 @@ export class WeeklyCalendarComponent implements OnInit, OnChanges {
     return this.weekStart().getTime() > currentWeekStart.getTime();
   });
 
+  constructor() {
+    effect(() => {
+      const ws = this.weekStart();
+      console.log('[WeeklyCalendar] effect: weekStart changed →', ws.toISOString());
+    });
+  }
+
   weekLabel = computed(() => {
     const start = this.weekStart();
     const end = new Date(start);
@@ -550,12 +558,15 @@ export class WeeklyCalendarComponent implements OnInit, OnChanges {
   }
 
   nextWeek() {
+    console.log('[WeeklyCalendar] nextWeek clicked, current weekStart:', this.weekStart());
     const next = this.availabilityService.getNextWeek(this.weekStart());
+    console.log('[WeeklyCalendar] nextWeek computed:', next);
     this.weekStart.set(next);
     this.selectedSlot.set(null);
     this.selectedDayIndex.set(0);
     this.generateCalendar();
     this.weekChanged.emit(next);
+    console.log('[WeeklyCalendar] nextWeek done, weekStart is now:', this.weekStart());
   }
 
   formatSelectedDate(): string {
