@@ -301,6 +301,7 @@ import { applyBrandingColors } from "../../shared/branding.utils";
                   [busyPeriods]="busyPeriods()"
                   [serviceDuration]="service()?.duration_minutes ?? 30"
                   [initialDate]="calendarInitialDate()"
+                  [loading]="loadingAvailability()"
                   (slotSelected)="onSlotSelected($event)"
                   (weekChanged)="onWeekChanged($event)"
                 />

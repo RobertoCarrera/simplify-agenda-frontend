@@ -26,27 +26,36 @@ import { BusyPeriod } from "../../services/booking-public.service";
   imports: [CommonModule, TranslocoModule],
   template: `
     <div class="calendar-container">
-      <!-- Navigation -->
-      <div class="calendar-nav">
-        <button
-          class="nav-btn"
-          (click)="previousWeek()"
-          [attr.aria-label]="'calendar.previousWeek' | transloco"
-        >
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1.25rem;height:1.25rem">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-          </svg>
-        </button>
-        <span class="week-label">{{ weekLabel() }}</span>
-        <button
-          class="nav-btn"
-          (click)="nextWeek()"
-          [attr.aria-label]="'calendar.nextWeek' | transloco"
-        >
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1.25rem;height:1.25rem">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-          </svg>
-        </button>
+      <!-- Header -->
+      <div class="calendar-header">
+        <div class="calendar-header-text">
+          <h3 class="calendar-title">Selecciona día y hora</h3>
+          <p class="calendar-subtitle">Toca un día para ver los huecos disponibles</p>
+        </div>
+        <div class="calendar-nav">
+          <button
+            class="nav-btn"
+            type="button"
+            (click)="previousWeek()"
+            [disabled]="!canGoPrevious()"
+            [attr.aria-label]="'calendar.previousWeek' | transloco"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <span class="week-label">{{ weekLabel() }}</span>
+          <button
+            class="nav-btn"
+            type="button"
+            (click)="nextWeek()"
+            [attr.aria-label]="'calendar.nextWeek' | transloco"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Day selector tabs -->
@@ -54,6 +63,7 @@ import { BusyPeriod } from "../../services/booking-public.service";
         @for (day of weekDays(); track day.date; let i = $index) {
           <button
             class="day-tab"
+            type="button"
             [class.day-tab--active]="selectedDayIndex() === i"
             [class.day-tab--today]="day.isToday"
             [class.day-tab--no-slots]="getAvailableSlotsForDay(i).length === 0"
@@ -63,8 +73,12 @@ import { BusyPeriod } from "../../services/booking-public.service";
             <span class="day-tab-number" [class.day-tab-number--today]="day.isToday">
               {{ day.dayNumber }}
             </span>
-            <span class="day-tab-count">
-              {{ getAvailableSlotsForDay(i).length }}
+            <span class="day-tab-count" [class.day-tab-count--empty]="getAvailableSlotsForDay(i).length === 0">
+              @if (getAvailableSlotsForDay(i).length === 0) {
+                Sin hueco
+              } @else {
+                {{ getAvailableSlotsForDay(i).length }} huecos
+              }
             </span>
           </button>
         }
@@ -72,22 +86,30 @@ import { BusyPeriod } from "../../services/booking-public.service";
 
       <!-- Time slots for selected day -->
       <div class="slots-section">
-        @if (getAvailableSlotsForDay(selectedDayIndex()).length === 0) {
+        @if (loading) {
+          <div class="loading-slots">
+            <div class="loading-spinner"></div>
+            <p>Cargando disponibilidad...</p>
+          </div>
+        } @else if (getAvailableSlotsForDay(selectedDayIndex()).length === 0) {
           <div class="no-slots-message">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:2rem;height:2rem;opacity:0.3">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:3rem;height:3rem;opacity:0.25">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <p>{{ "calendar.noSlots" | transloco }}</p>
+            <p class="no-slots-title">No hay huecos este día</p>
+            <p class="no-slots-hint">Prueba con otro día o revisa la semana siguiente →</p>
           </div>
         } @else {
-          <div class="slots-grid">
+          <div class="slots-list">
             @for (slot of getAvailableSlotsForDay(selectedDayIndex()); track slot.id) {
               <button
                 class="slot-btn"
+                type="button"
                 [class.slot-btn--selected]="selectedSlot()?.id === slot.id"
                 (click)="onSlotSelect(slot)"
               >
-                {{ slot.startTime }}
+                <span class="slot-time-text">{{ slot.startTime }}</span>
+                <span class="slot-time-end">– {{ slot.endTime }}</span>
               </button>
             }
           </div>
@@ -97,13 +119,15 @@ import { BusyPeriod } from "../../services/booking-public.service";
       <!-- Selected Slot Display -->
       @if (selectedSlot()) {
         <div class="selected-slot">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1.25rem;height:1.25rem">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-          </svg>
-          <span class="slot-time">
-            {{ selectedSlot()?.startTime }} - {{ selectedSlot()?.endTime }}
-          </span>
-          <span class="slot-date">{{ formatSelectedDate() }}</span>
+          <div class="selected-slot-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <div class="selected-slot-info">
+            <span class="selected-slot-time">{{ selectedSlot()?.startTime }} – {{ selectedSlot()?.endTime }}</span>
+            <span class="selected-slot-date">{{ formatSelectedDate() }}</span>
+          </div>
         </div>
       }
     </div>
@@ -117,33 +141,60 @@ import { BusyPeriod } from "../../services/booking-public.service";
         border: 1px solid var(--color-border);
       }
 
-      /* Navigation */
+      /* ── Header ──────────────────────────────────────── */
+      .calendar-header {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        margin-bottom: var(--space-5);
+        padding-bottom: var(--space-5);
+        border-bottom: 1px solid var(--color-border);
+      }
+      .calendar-header-text { text-align: center; }
+      .calendar-title {
+        margin: 0 0 0.25rem;
+        font-size: var(--font-size-lg);
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-primary);
+      }
+      .calendar-subtitle {
+        margin: 0;
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+      }
+
+      /* ── Week navigation ─────────────────────────────── */
       .calendar-nav {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: var(--space-5);
-        padding-bottom: var(--space-4);
-        border-bottom: 1px solid var(--color-border);
+        gap: var(--space-3);
       }
 
       .nav-btn {
-        padding: var(--space-2);
-        background: var(--color-surface-hover);
+        flex-shrink: 0;
+        width: 2.5rem;
+        height: 2.5rem;
+        background: var(--color-surface);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-md);
         cursor: pointer;
-        color: var(--color-text-secondary);
+        color: var(--color-text);
         transition: all var(--transition-fast);
         display: flex;
         align-items: center;
         justify-content: center;
       }
-
-      .nav-btn:hover {
+      .nav-btn svg { width: 1.25rem; height: 1.25rem; }
+      .nav-btn:hover:not(:disabled) {
         background: var(--color-primary);
         color: var(--color-primary-text);
         border-color: var(--color-primary);
+        transform: translateY(-1px);
+      }
+      .nav-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
       }
 
       .week-label {
@@ -156,177 +207,223 @@ import { BusyPeriod } from "../../services/booking-public.service";
         padding: 0 var(--space-3);
       }
 
-      /* Day tabs */
+      /* ── Day tabs ────────────────────────────────────── */
       .day-tabs {
-        display: flex;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
         gap: var(--space-2);
         margin-bottom: var(--space-5);
-        overflow-x: auto;
-        padding-bottom: var(--space-2);
       }
-
       .day-tab {
-        flex: 1;
-        min-width: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: var(--space-1);
+        gap: 0.25rem;
         padding: var(--space-3) var(--space-2);
         background: var(--color-surface);
         border: 2px solid var(--color-border);
         border-radius: var(--radius-lg);
         cursor: pointer;
         transition: all var(--transition-fast);
+        min-height: 5.5rem;
       }
-
-      .day-tab:hover:not(.day-tab--no-slots) {
+      .day-tab:hover:not(.day-tab--no-slots):not(.day-tab--active) {
         border-color: var(--color-primary);
+        background: var(--color-primary-light);
       }
-
       .day-tab--active {
         background: var(--color-primary);
         border-color: var(--color-primary);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       }
-
       .day-tab--active .day-tab-name,
       .day-tab--active .day-tab-number,
-      .day-tab--active .day-tab-count {
-        color: var(--color-primary-text);
-      }
-
-      .day-tab--today {
+      .day-tab--active .day-tab-count { color: var(--color-primary-text); }
+      .day-tab--today:not(.day-tab--active) {
         border-color: var(--color-primary);
       }
-
       .day-tab--no-slots {
         opacity: 0.4;
         cursor: not-allowed;
       }
-
       .day-tab-name {
-        font-size: var(--font-size-xs);
-        font-weight: var(--font-weight-medium);
+        font-size: 0.7rem;
+        font-weight: var(--font-weight-semibold);
         color: var(--color-text-secondary);
         text-transform: uppercase;
+        letter-spacing: 0.05em;
       }
-
       .day-tab-number {
-        font-size: var(--font-size-xl);
+        font-size: 1.5rem;
         font-weight: var(--font-weight-bold);
         color: var(--color-text-primary);
         line-height: 1;
       }
-
       .day-tab-number--today {
-        background: var(--color-primary);
-        color: var(--color-primary-text);
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
+        background: var(--color-primary);
+        color: var(--color-primary-text);
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 50%;
+        font-size: 1rem;
       }
-
+      .day-tab--active .day-tab-number--today {
+        background: var(--color-primary-text);
+        color: var(--color-primary);
+      }
       .day-tab-count {
-        font-size: var(--font-size-xs);
+        font-size: 0.7rem;
+        font-weight: var(--font-weight-medium);
         color: var(--color-text-disabled);
+        white-space: nowrap;
       }
+      .day-tab-count--empty { font-style: italic; }
 
-      /* Slots section */
-      .slots-section {
-        min-height: 200px;
-        margin-bottom: var(--space-5);
-      }
+      /* ── Slots list ──────────────────────────────────── */
+      .slots-section { min-height: 200px; margin-bottom: var(--space-5); }
 
-      .slots-grid {
+      .slots-list {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
         gap: var(--space-3);
       }
 
       .slot-btn {
-        padding: var(--space-4) var(--space-3);
-        background: var(--color-surface);
-        border: 2px solid var(--color-border);
-        border-radius: var(--radius-lg);
-        cursor: pointer;
-        font-size: var(--font-size-base);
-        font-weight: var(--font-weight-semibold);
-        color: var(--color-text);
-        transition: all var(--transition-fast);
-        text-align: center;
-      }
-
-      .slot-btn:hover {
-        border-color: var(--color-primary);
-        background: var(--color-primary-light);
-        transform: translateY(-1px);
-      }
-
-      .slot-btn--selected {
-        background: var(--color-primary);
-        border-color: var(--color-primary);
-        color: var(--color-primary-text);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      }
-
-      .no-slots-message {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: var(--space-8);
+        gap: 0.25rem;
+        padding: 1rem 0.75rem;
+        background: var(--color-surface);
+        border: 2px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        text-align: center;
+        min-height: 4rem;
+      }
+      .slot-btn:hover:not(.slot-btn--selected) {
+        border-color: var(--color-primary);
+        background: var(--color-primary-light);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      }
+      .slot-btn--selected {
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        transform: scale(1.02);
+      }
+      .slot-time-text {
+        font-size: 1.125rem;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text);
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+      .slot-time-end {
+        font-size: 0.75rem;
+        color: var(--color-text-secondary);
+        font-variant-numeric: tabular-nums;
+      }
+      .slot-btn--selected .slot-time-text { color: var(--color-primary-text); }
+      .slot-btn--selected .slot-time-end { color: var(--color-primary-text); opacity: 0.8; }
+
+      /* ── Empty / loading ─────────────────────────────── */
+      .no-slots-message,
+      .loading-slots {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: var(--space-10) var(--space-4);
         color: var(--color-text-disabled);
         gap: var(--space-3);
+        text-align: center;
       }
-
-      .no-slots-message p {
+      .no-slots-title {
+        margin: 0;
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-secondary);
+      }
+      .no-slots-hint {
         margin: 0;
         font-size: var(--font-size-sm);
+        color: var(--color-text-disabled);
       }
+      .loading-spinner {
+        width: 2rem;
+        height: 2rem;
+        border: 3px solid var(--color-border);
+        border-top-color: var(--color-primary);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
 
-      /* Selected slot display */
+      /* ── Selected slot display ───────────────────────── */
       .selected-slot {
         display: flex;
         align-items: center;
         gap: var(--space-3);
-        padding: var(--space-4);
+        padding: var(--space-4) var(--space-5);
         background: var(--color-primary-light);
         border-radius: var(--radius-md);
-        border: 1px solid var(--color-primary);
+        border: 1.5px solid var(--color-primary);
       }
-
-      .selected-slot svg {
-        color: var(--color-primary);
+      .selected-slot-icon {
+        width: 2.25rem;
+        height: 2.25rem;
+        background: var(--color-primary);
+        color: var(--color-primary-text);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         flex-shrink: 0;
       }
-
-      .selected-slot .slot-time {
-        font-weight: var(--font-weight-bold);
-        color: var(--color-primary);
-        font-size: var(--font-size-lg);
+      .selected-slot-icon svg { width: 1.25rem; height: 1.25rem; }
+      .selected-slot-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.125rem;
+        min-width: 0;
       }
-
-      .selected-slot .slot-date {
+      .selected-slot-time {
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text);
+        font-size: var(--font-size-lg);
+        font-variant-numeric: tabular-nums;
+      }
+      .selected-slot-date {
         color: var(--color-text-secondary);
         font-size: var(--font-size-sm);
-        margin-left: auto;
       }
 
-      @media (max-width: 480px) {
+      /* ── Mobile ──────────────────────────────────────── */
+      @media (max-width: 640px) {
+        .calendar-container { padding: var(--space-4); }
         .day-tabs {
-          gap: var(--space-1);
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 0.4rem;
         }
-        
         .day-tab {
-          padding: var(--space-2) var(--space-1);
+          padding: var(--space-2) 0.25rem;
+          min-height: 4.5rem;
         }
-
-        .slots-grid {
-          grid-template-columns: repeat(3, 1fr);
+        .day-tab-number { font-size: 1.1rem; }
+        .day-tab-count { font-size: 0.6rem; }
+        .slots-list {
+          grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+          gap: 0.6rem;
         }
+        .slot-btn { padding: 0.75rem 0.5rem; min-height: 3.5rem; }
+        .slot-time-text { font-size: 1rem; }
       }
     `,
   ],
@@ -335,6 +432,7 @@ export class WeeklyCalendarComponent implements OnInit, OnChanges {
   @Input() busyPeriods: BusyPeriod[] = [];
   @Input() serviceDuration: number = 30;
   @Input() initialDate?: Date;
+  @Input() loading = false;
   @Output() slotSelected = new EventEmitter<TimeSlot>();
   @Output() weekChanged = new EventEmitter<Date>();
 
@@ -346,6 +444,12 @@ export class WeeklyCalendarComponent implements OnInit, OnChanges {
 
   weekDays = signal<WeekDay[]>([]);
   calendarDays = signal<CalendarDay[]>([]);
+
+  /** True when current week is the user's current week — disables "previous" nav. */
+  canGoPrevious = computed(() => {
+    const currentWeekStart = this.availabilityService.getWeekStart(new Date());
+    return this.weekStart().getTime() > currentWeekStart.getTime();
+  });
 
   weekLabel = computed(() => {
     const start = this.weekStart();
