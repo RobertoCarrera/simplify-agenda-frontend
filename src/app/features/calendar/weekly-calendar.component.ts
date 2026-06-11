@@ -136,7 +136,7 @@ import { BusyPeriod } from "../../services/booking-public.service";
     `
       .calendar-container {
         background: var(--color-surface);
-        border-radius: var(--radius-lg);
+        border-radius: var(--radius-xl);
         padding: var(--space-6);
         border: 1px solid var(--color-border);
       }
@@ -177,7 +177,7 @@ import { BusyPeriod } from "../../services/booking-public.service";
         height: 2.5rem;
         background: var(--color-surface);
         border: 1px solid var(--color-border);
-        border-radius: var(--radius-md);
+        border-radius: var(--radius-full);
         cursor: pointer;
         color: var(--color-text);
         transition: all var(--transition-fast);
@@ -222,7 +222,7 @@ import { BusyPeriod } from "../../services/booking-public.service";
         padding: var(--space-3) var(--space-2);
         background: var(--color-surface);
         border: 2px solid var(--color-border);
-        border-radius: var(--radius-lg);
+        border-radius: var(--radius-xl);
         cursor: pointer;
         transition: all var(--transition-fast);
         min-height: 5.5rem;
@@ -265,9 +265,9 @@ import { BusyPeriod } from "../../services/booking-public.service";
         justify-content: center;
         background: var(--color-primary);
         color: var(--color-primary-text);
-        width: 1.75rem;
-        height: 1.75rem;
-        border-radius: 50%;
+        width: 1.85rem;
+        height: 1.85rem;
+        border-radius: var(--radius-full);
         font-size: 1rem;
       }
       .day-tab--active .day-tab-number--today {
@@ -300,7 +300,7 @@ import { BusyPeriod } from "../../services/booking-public.service";
         padding: 1rem 0.75rem;
         background: var(--color-surface);
         border: 2px solid var(--color-border);
-        border-radius: var(--radius-lg);
+        border-radius: var(--radius-xl);
         cursor: pointer;
         transition: all var(--transition-fast);
         text-align: center;
@@ -373,7 +373,7 @@ import { BusyPeriod } from "../../services/booking-public.service";
         gap: var(--space-3);
         padding: var(--space-4) var(--space-5);
         background: var(--color-primary-light);
-        border-radius: var(--radius-md);
+        border-radius: var(--radius-2xl);
         border: 1.5px solid var(--color-primary);
       }
       .selected-slot-icon {
