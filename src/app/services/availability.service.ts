@@ -51,7 +51,11 @@ export class AvailabilityService {
   }
 
   /**
-   * Generate time slots for a given day
+   * Generate time slots for a given day.
+   *
+   * Step between consecutive slot start times equals the service duration,
+   * so a 60-min service shows 9:00 → 10:00, 10:00 → 11:00, … and a 30-min
+   * service shows 9:00 → 9:30, 9:30 → 10:00, …
    */
   generateTimeSlots(
     day: WeekDay,
@@ -65,25 +69,20 @@ export class AvailabilityService {
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
 
-    // Calculate slot intervals based on service duration
-    const slotsPerHour = 60 / this.SLOT_DURATION_MINUTES;
-    const totalSlots =
-      (this.WORKING_HOURS.end - this.WORKING_HOURS.start) * slotsPerHour;
+    // Step between starts = service duration. Each slot ends at start + serviceDuration.
+    const step = serviceDuration > 0 ? serviceDuration : 30;
+    const startOfDay = this.WORKING_HOURS.start * 60; // minutes from midnight
+    const endOfDay = this.WORKING_HOURS.end * 60;
 
-    for (let i = 0; i < totalSlots; i++) {
-      const hour =
-        this.WORKING_HOURS.start +
-        Math.floor((i * this.SLOT_DURATION_MINUTES) / 60);
-      const minute = (i * this.SLOT_DURATION_MINUTES) % 60;
+    for (let mins = startOfDay; mins + step <= endOfDay; mins += step) {
+      const hour = Math.floor(mins / 60);
+      const minute = mins % 60;
 
       const slotDate = new Date(day.date);
       slotDate.setHours(hour, minute, 0, 0);
 
       const startTime = this.formatTime(hour, minute);
-      const endTime = this.formatTime(
-        hour,
-        minute + this.SLOT_DURATION_MINUTES,
-      );
+      const endTime = this.formatTime(hour, minute + step);
 
       // Check if slot is in the past (for today)
       let isPast = day.isPast;
@@ -94,11 +93,10 @@ export class AvailabilityService {
       }
 
       // Check if slot is available (not in busy periods)
-      // Note: A slot is occupied if it overlaps with any busy period
       const isAvailable = !this.isSlotOccupied(
         slotDate,
         busyPeriods,
-        serviceDuration,
+        step,
       );
 
       // Check if this is the selected slot
@@ -165,7 +163,12 @@ export class AvailabilityService {
    * Format hour and minute to time string
    */
   private formatTime(hour: number, minute: number): string {
-    return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+    // Normalize: if minute >= 60, roll into the hour. This avoids
+    // formatting "09:60" when a slot's end time crosses the hour mark.
+    const total = hour * 60 + minute;
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
   }
 
   /**
