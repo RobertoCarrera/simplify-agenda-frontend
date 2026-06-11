@@ -9,7 +9,6 @@ import {
   inject,
   signal,
   computed,
-  effect,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { TranslocoModule } from "@jsverse/transloco";
@@ -32,6 +31,7 @@ import { BusyPeriod } from "../../services/booking-public.service";
         <div class="calendar-header-text">
           <h3 class="calendar-title">Selecciona día y hora</h3>
           <p class="calendar-subtitle">Toca un día para ver los huecos disponibles</p>
+          <p class="calendar-debug">[DEBUG weekStart={{ rawWeekStartLabel() }}]</p>
         </div>
         <div class="calendar-nav">
           <button
@@ -162,6 +162,12 @@ import { BusyPeriod } from "../../services/booking-public.service";
         margin: 0;
         font-size: var(--font-size-sm);
         color: var(--color-text-secondary);
+      }
+      .calendar-debug {
+        margin: 0.25rem 0 0;
+        font-size: 0.7rem;
+        color: #ef4444;
+        font-family: monospace;
       }
 
       /* ── Week navigation ─────────────────────────────── */
@@ -453,10 +459,7 @@ export class WeeklyCalendarComponent implements OnInit, OnChanges {
   });
 
   constructor() {
-    effect(() => {
-      const ws = this.weekStart();
-      console.log('[WeeklyCalendar] effect: weekStart changed →', ws.toISOString());
-    });
+    // No-op constructor (debug logs removed)
   }
 
   weekLabel = computed(() => {
@@ -489,6 +492,9 @@ export class WeeklyCalendarComponent implements OnInit, OnChanges {
     const endDow = end.toLocaleDateString("es-ES", { weekday: "short" });
     return `${capitalize(startDow)} ${start.getDate()} – ${capitalize(endDow)} ${end.getDate()} ${end.toLocaleDateString("es-ES", { month: "short" })} · ${yearStr}`;
   });
+
+  /** Raw ISO date of the current week start — exposed for debugging only. */
+  rawWeekStartLabel = computed(() => this.weekStart().toISOString().slice(0, 10));
 
   ngOnInit() {
     if (this.initialDate) {
@@ -558,15 +564,12 @@ export class WeeklyCalendarComponent implements OnInit, OnChanges {
   }
 
   nextWeek() {
-    console.log('[WeeklyCalendar] nextWeek clicked, current weekStart:', this.weekStart());
     const next = this.availabilityService.getNextWeek(this.weekStart());
-    console.log('[WeeklyCalendar] nextWeek computed:', next);
     this.weekStart.set(next);
     this.selectedSlot.set(null);
     this.selectedDayIndex.set(0);
     this.generateCalendar();
     this.weekChanged.emit(next);
-    console.log('[WeeklyCalendar] nextWeek done, weekStart is now:', this.weekStart());
   }
 
   formatSelectedDate(): string {
