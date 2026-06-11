@@ -484,6 +484,12 @@ interface JourneyTabDef {
         gap: 1rem;
         margin-top: 1rem;
       }
+      /* Cap to 4 cards per row on wide viewports */
+      @media (min-width: 900px) {
+        .professionals-grid {
+          grid-template-columns: repeat(4, 1fr);
+        }
+      }
       .prof-card {
         background: var(--color-surface);
         border: 1px solid var(--color-border);
