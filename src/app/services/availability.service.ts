@@ -150,7 +150,10 @@ export class AvailabilityService {
     const breakEnd = window.breakEnd;
 
     // Check if the day is fully blocked (all_day=true).
-    const dayStr = day.date.toISOString().split("T")[0];
+    // IMPORTANT: use LOCAL date components, not toISOString() which is UTC.
+    // Otherwise a date in CEST (UTC+2) before 02:00 local would shift to
+    // the previous day in UTC and the blocked-date filter would mismatch.
+    const dayStr = this.toLocalDateString(day.date);
     const dayBlock = this.isDateBlocked(dayStr, blockedDates);
     if (dayBlock && dayBlock.all_day) {
       return slots; // Day is fully blocked.
@@ -271,7 +274,18 @@ export class AvailabilityService {
    * Generate slot ID from date and time
    */
   private generateSlotId(date: Date, hour: number, minute: number): string {
-    return `${date.toISOString().split("T")[0]}-${hour.toString().padStart(2, "0")}-${minute.toString().padStart(2, "0")}`;
+    return `${this.toLocalDateString(date)}-${hour.toString().padStart(2, "0")}-${minute.toString().padStart(2, "0")}`;
+  }
+
+  /**
+   * Format a Date as YYYY-MM-DD using LOCAL time components.
+   * Avoids the UTC-shift bug of toISOString().split("T")[0] in non-UTC zones.
+   */
+  private toLocalDateString(date: Date): string {
+    const y = date.getFullYear();
+    const m = (date.getMonth() + 1).toString().padStart(2, "0");
+    const d = date.getDate().toString().padStart(2, "0");
+    return `${y}-${m}-${d}`;
   }
 
   /**
