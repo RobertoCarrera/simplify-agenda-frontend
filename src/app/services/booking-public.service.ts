@@ -15,6 +15,24 @@ export interface Company {
   primary_color?: string;
   secondary_color?: string;
   enabled_filters?: ('services' | 'professionals' | 'duration')[];
+  portal_features?: PortalFeatures;
+}
+
+/**
+ * Per-company portal capability flags. The backend (booking-public BFF)
+ * always returns a fully-resolved object (it fills in defaults if the DB
+ * column is NULL), so the frontend can rely on every field being defined.
+ *
+ * Multiple flags can be true at once: e.g. a clinic that sells bono packs
+ * as catalog AND takes appointments as booking will have both
+ * show_booking and show_catalog = true.
+ */
+export interface PortalFeatures {
+  show_booking: boolean;
+  show_catalog: boolean;
+  show_shop: boolean;
+  show_professionals: boolean;
+  show_availability: boolean;
 }
 
 export interface VariantPricing {
@@ -111,6 +129,24 @@ export interface CreateBookingPayload {
   turnstile_token: string;
   variant_id?: string;
   variant_pricing_snapshot?: VariantPricing;
+}
+
+/**
+ * Resolve a Company against the canonical portal_features defaults. Use this
+ * when you need to know if a capability is on but you don't want to repeat
+ * the fallback chain in every component. The backend already returns a
+ * fully-resolved object, so this is mostly a safety net for cached or
+ * partially-loaded states.
+ */
+export function resolvePortalFeatures(company: Company | null | undefined): PortalFeatures {
+  const pf = company?.portal_features;
+  return {
+    show_booking: pf?.show_booking ?? true,
+    show_catalog: pf?.show_catalog ?? false,
+    show_shop: pf?.show_shop ?? false,
+    show_professionals: pf?.show_professionals ?? true,
+    show_availability: pf?.show_availability ?? true,
+  };
 }
 
 export interface BookingResponse {
