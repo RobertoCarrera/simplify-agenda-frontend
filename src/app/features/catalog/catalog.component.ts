@@ -7,6 +7,8 @@ import {
   BookingPublicService,
   Company,
   Service,
+  ServiceVariant,
+  VariantPricing,
   Professional,
 } from "../../services/booking-public.service";
 import { applyBrandingColors } from "../../shared/branding.utils";
@@ -227,10 +229,34 @@ interface JourneyTabDef {
               <p class="service-desc">{{ svc.description | stripHtml }}</p>
             }
           </div>
-          @if (svc.price != null) {
+          @if (variantOptionsFor(svc).length === 0 && svc.price != null) {
             <span class="service-price">{{ svc.price }}€</span>
           }
         </div>
+
+        <!-- Variant tiers (only when the service has 1+ active+visible variants).
+             Each row is a clickable button that navigates to the booking wizard
+             with the variant pre-selected, so the customer skips the detail page. -->
+        @if (variantOptionsFor(svc).length > 0) {
+          <div class="tier-list">
+            @for (tier of variantOptionsFor(svc); track tier.variantId + '::' + tier.pricing.billing_period) {
+              <button
+                type="button"
+                class="tier-row"
+                [style.border-left-color]="tier.variant.display_config?.color || 'var(--color-primary)'"
+                [routerLink]="['/', slug(), 'reservar', svc.id]"
+                [queryParams]="tierQueryParams(svc, tier, profId)"
+              >
+                <span class="tier-name">{{ tier.variant.name }}</span>
+                <span class="tier-price">
+                  <span class="tier-amount">{{ tier.pricing.base_price }}€</span>
+                  <span class="tier-period" *ngIf="tier.pricing.billing_period">/ {{ periodLabel(tier.pricing.billing_period) }}</span>
+                </span>
+              </button>
+            }
+          </div>
+        }
+
         <div class="service-card-bottom">
           <div class="service-meta">
             <span class="duration-badge">{{ svc.duration_minutes }} min</span>
@@ -249,11 +275,13 @@ interface JourneyTabDef {
               }
             </div>
           </div>
-          <a
-            class="btn btn-reservar"
-            [routerLink]="['/', slug(), 'reservar', svc.id]"
-            [queryParams]="profId ? { professional: profId } : {}"
-          >Reservar</a>
+          @if (variantOptionsFor(svc).length === 0) {
+            <a
+              class="btn btn-reservar"
+              [routerLink]="['/', slug(), 'reservar', svc.id]"
+              [queryParams]="profId ? { professional: profId } : {}"
+            >Reservar</a>
+          }
         </div>
       </div>
     </ng-template>
@@ -476,6 +504,60 @@ interface JourneyTabDef {
         color: var(--color-primary-text);
       }
       .btn-reservar:hover { background: var(--color-primary-hover); }
+
+      /* ── Variant tier list ── */
+      .tier-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+      }
+      .tier-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem 0.5rem 0.875rem;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left-width: 3px;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        transition: all 150ms ease;
+        width: 100%;
+      }
+      .tier-row:hover {
+        border-color: var(--color-primary);
+        background: var(--color-surface-hover);
+        transform: translateX(2px);
+      }
+      .tier-name {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--color-text);
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .tier-price {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.25rem;
+        flex-shrink: 0;
+      }
+      .tier-amount {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--color-text);
+      }
+      .tier-period {
+        font-size: 0.7rem;
+        color: var(--color-text-secondary);
+      }
 
       /* ── Professionals grid ── */
       .professionals-grid {
@@ -707,6 +789,12 @@ interface JourneyTabDef {
           gap: 0.5rem;
         }
         .service-card-info { min-width: 0; }
+
+        .tier-row {
+          padding: 0.5rem 0.625rem 0.5rem 0.75rem;
+        }
+        .tier-name { font-size: 0.8125rem; }
+        .tier-amount { font-size: 0.875rem; }
       }
     `,
   ],
@@ -834,6 +922,56 @@ export class CatalogComponent implements OnInit {
 
   backToProfList() {
     this.selectedProfessional.set(null);
+  }
+
+  /**
+   * Flatten a service's variants into one card-row per (variant, billing_period).
+   * Variants with empty pricing arrays are skipped. Returns an empty array when
+   * the service has no variants — callers use this to decide whether to render
+   * the tier list or fall back to the flat "Reservar" button.
+   */
+  variantOptionsFor(svc: Service): Array<{ variant: ServiceVariant; variantId: string; pricing: VariantPricing }> {
+    if (!svc.variants) return [];
+    const opts: Array<{ variant: ServiceVariant; variantId: string; pricing: VariantPricing }> = [];
+    for (const v of svc.variants) {
+      if (!v.pricing || v.pricing.length === 0) continue;
+      for (const p of v.pricing) {
+        opts.push({ variant: v, variantId: v.id, pricing: p });
+      }
+    }
+    return opts;
+  }
+
+  /**
+   * Build the queryParams object for the wizard link on a tier row.
+   * Always includes variant_id + variant_billing_period + variant_base_price
+   * so the wizard can rehydrate the selection on load. Preserves the
+   * professional deep-link if the catalog was opened with one.
+   */
+  tierQueryParams(
+    _svc: Service,
+    tier: { variantId: string; pricing: VariantPricing },
+    profId: string | null,
+  ): Record<string, string> {
+    const params: Record<string, string> = {
+      variant_id: tier.variantId,
+      variant_billing_period: tier.pricing.billing_period,
+      variant_base_price: String(tier.pricing.base_price),
+    };
+    if (profId) params["professional"] = profId;
+    return params;
+  }
+
+  /** Short, locale-friendly label for a billing period, used in the card. */
+  periodLabel(period: VariantPricing["billing_period"]): string {
+    const labels: Record<VariantPricing["billing_period"], string> = {
+      monthly: "mes",
+      annual: "año",
+      one_time: "pago único",
+      session: "sesión",
+      custom: "",
+    };
+    return labels[period] || period;
   }
 
   reload() {
