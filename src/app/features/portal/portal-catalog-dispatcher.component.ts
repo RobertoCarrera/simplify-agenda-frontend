@@ -10,33 +10,41 @@ import {
 import { CatalogOnlyComponent } from "../catalog/catalog-only.component";
 import { CatalogComponent } from "../catalog/catalog.component";
 import { ShopOnlyComponent } from "../shop/shop-only.component";
+import { PortalCombinedComponent } from "./portal-combined.component";
 
 /**
- * Dispatches between three portal views at render time:
- *   - 'shop'         → ShopOnlyComponent (products grid)
- *   - 'catalog-only' → CatalogOnlyComponent (services + tier rows)
- *   - 'full'         → CatalogComponent (booking tabs + professionals)
+ * Dispatches between portal views at render time. The decision is
+ * driven by the resolved portal_features for the active company.
  *
- * The decision is driven by the resolved portal_features for the
- * active company. Multiple flags can be true; for the initial ticket
- * we pick the first one in priority order: shop > catalog > full.
- * Future iteration can render multiple views side-by-side.
+ *   - 0 flags active              → empty state (no view rendered)
+ *   - 1 flag active               → the matching single-mode view
+ *                                   (ShopOnlyComponent / CatalogOnlyComponent /
+ *                                   CatalogComponent)
+ *   - 2+ flags active             → PortalCombinedComponent, which renders
+ *                                   all enabled sections in cascade
+ *                                   (booking → catalog → shop)
+ *
+ * The combined view exists because owners who enable multiple
+ * capabilities want the customer to see the full offering, not
+ * just the highest-priority one. Single-mode is kept as a fast path
+ * because its components are lighter and tailored to their respective
+ * shapes.
+ *
+ * Priority order (when forcing a single mode): shop > catalog-only > full.
  */
 @Component({
   selector: "app-portal-catalog-dispatcher",
   standalone: true,
-  imports: [CommonModule, CatalogOnlyComponent, CatalogComponent, ShopOnlyComponent],
+  imports: [CommonModule, CatalogOnlyComponent, CatalogComponent, ShopOnlyComponent, PortalCombinedComponent],
   template: `
-    @switch (mode()) {
-      @case ('shop') {
-        <app-shop-only />
-      }
-      @case ('catalog-only') {
-        <app-catalog-only />
-      }
-      @default {
-        <app-catalog />
-      }
+    @if (mode() === 'combined') {
+      <app-portal-combined />
+    } @else if (mode() === 'shop') {
+      <app-shop-only />
+    } @else if (mode() === 'catalog-only') {
+      <app-catalog-only />
+    } @else {
+      <app-catalog />
     }
   `,
 })
@@ -44,15 +52,20 @@ export class PortalCatalogDispatcherComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private bookingService = inject(BookingPublicService);
 
-  mode = signal<"shop" | "catalog-only" | "full">("full");
+  mode = signal<"combined" | "shop" | "catalog-only" | "full">("full");
 
   /**
-   * Compute the mode from a portal_features payload. Priority: shop >
-   * catalog-only > full (booking). This is the single source of truth for
-   * the decision — both the localStorage fast-path and the BFF
-   * response go through this function so the logic stays in one place.
+   * Compute the mode from a portal_features payload. Returns 'combined'
+   * when 2+ of the user-facing flags are true; otherwise returns the
+   * single highest-priority mode.
    */
-  private computeMode(features: PortalFeatures): "shop" | "catalog-only" | "full" {
+  private computeMode(features: PortalFeatures): "combined" | "shop" | "catalog-only" | "full" {
+    const userFacingFlags = [
+      features.show_booking,
+      features.show_catalog,
+      features.show_shop,
+    ].filter(Boolean).length;
+    if (userFacingFlags >= 2) return "combined";
     if (features.show_shop) return "shop";
     if (features.show_catalog) return "catalog-only";
     return "full";
