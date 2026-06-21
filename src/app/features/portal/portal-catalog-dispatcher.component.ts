@@ -1,9 +1,11 @@
-import { Component, OnInit, inject, signal } from "@angular/core";
+import { Component, OnInit, inject, signal, computed } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { CommonModule } from "@angular/common";
 import {
   BookingPublicService,
   resolvePortalFeatures,
+  PortalFeatures,
+  Company,
 } from "../../services/booking-public.service";
 import { CatalogOnlyComponent } from "../catalog/catalog-only.component";
 import { CatalogComponent } from "../catalog/catalog.component";
@@ -13,17 +15,18 @@ import { CatalogComponent } from "../catalog/catalog.component";
  * tabs) at render time. The decision is driven by the resolved
  * portal_features for the active company.
  *
- * Implementation note: we deliberately bypass the route-level
- * portalFeaturesResolver and re-fetch the company data from the BFF here
- * using the slug from the parent route. The reason is that the route
- * resolver chain (parent.company → child.portalFeatures) was producing
- * empty values at the moment the dispatcher mounted, causing the wrong
- * view to render. Reading directly from the BFF removes the timing
- * dependency and makes the dispatcher self-sufficient.
+ * Resolution strategy (in order):
+ *   1. The BFF call (`getServices`) returns company.portal_features. This is
+ *      the canonical source and the dispatcher uses it when available.
+ *   2. Fallback: the `companyResolver` (parent route) writes the company
+ *      payload to `localStorage` under the `currentCompany` key. We read
+ *      it synchronously on init so the dispatcher has a value to render
+ *      even if the BFF call is slow or fails.
+ *   3. Conservative default: full CatalogComponent. Safe because the full
+ *      component handles its own errors.
  *
- * The BFF call is cached by the BookingPublicService internally, so the
- * second call from the underlying CatalogOnlyComponent / CatalogComponent
- * does not re-hit the network.
+ * The BFF call also writes the result back to the signal, so a successful
+ * fetch always wins over the cached version.
  */
 @Component({
   selector: "app-portal-catalog-dispatcher",
@@ -48,20 +51,37 @@ export class PortalCatalogDispatcherComponent implements OnInit {
       this.route.parent?.snapshot.paramMap.get("slug") ??
       this.route.snapshot.paramMap.get("slug") ??
       "";
-    if (!slug) {
-      // No slug → we can't decide. Default to full (the current behavior).
-      return;
-    }
-    this.bookingService.getServices(slug).subscribe({
-      next: (res) => {
-        const features = resolvePortalFeatures(res.company ?? null);
+
+    // 1. Try the localStorage cache written by the parent companyResolver.
+    //    This is synchronous and gives us a value before the BFF even
+    //    returns. If the cache is stale or missing, the BFF call below
+    //    overrides it.
+    try {
+      const cached = localStorage.getItem("currentCompany");
+      if (cached) {
+        const parsed = JSON.parse(cached) as Company;
+        const features = resolvePortalFeatures(parsed);
         this.mode.set(features.show_catalog ? "catalog-only" : "full");
-      },
-      error: () => {
-        // On error, default to full (the original behavior, which is safe
-        // because the full CatalogComponent does its own error handling).
-        this.mode.set("full");
-      },
-    });
+      }
+    } catch {
+      // localStorage may be unavailable (SSR / private mode) — ignore.
+    }
+
+    // 2. Re-fetch the BFF. The BFF call may or may not be cached by
+    //    Angular's HttpClient, but the BookingPublicService doesn't
+    //    currently cache it, so this is a real network call. We do it
+    //    anyway because it is the canonical source and overrides any
+    //    stale localStorage value.
+    if (slug) {
+      this.bookingService.getServices(slug).subscribe({
+        next: (res) => {
+          const features = resolvePortalFeatures(res.company ?? null);
+          this.mode.set(features.show_catalog ? "catalog-only" : "full");
+        },
+        error: () => {
+          // Keep whatever mode was set in step 1 (or the default "full").
+        },
+      });
+    }
   }
 }
