@@ -74,9 +74,22 @@ export interface Professional {
   company?: Company;
 }
 
+export interface Product {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number | null;
+  stock_quantity?: number | null;
+  brand?: string | null;
+  model?: string | null;
+  barcode?: string | null;
+  location?: string | null;
+}
+
 export interface CompanyServicesResponse {
   company: Company;
   services: Service[];
+  products: Product[];
   professionals: Professional[];
 }
 

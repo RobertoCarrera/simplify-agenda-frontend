@@ -9,31 +9,34 @@ import {
 } from "../../services/booking-public.service";
 import { CatalogOnlyComponent } from "../catalog/catalog-only.component";
 import { CatalogComponent } from "../catalog/catalog.component";
+import { ShopOnlyComponent } from "../shop/shop-only.component";
 
 /**
- * Dispatches between the catalog-only and the full catalog (with booking
- * tabs) at render time. The decision is driven by the resolved
- * portal_features for the active company.
+ * Dispatches between three portal views at render time:
+ *   - 'shop'         → ShopOnlyComponent (products grid)
+ *   - 'catalog-only' → CatalogOnlyComponent (services + tier rows)
+ *   - 'full'         → CatalogComponent (booking tabs + professionals)
  *
- * Resolution strategy (in order):
- *   1. The BFF call (`getServices`) returns company.portal_features. This is
- *      the canonical source and the dispatcher uses it when available.
- *   2. Fallback: the `companyResolver` (parent route) writes the company
- *      payload to `localStorage` under the `currentCompany` key. We read
- *      it synchronously on init so the dispatcher has a value to render
- *      even if the BFF call is slow or fails.
- *   3. Conservative default: full CatalogComponent. Safe because the full
- *      component handles its own errors.
+ * The decision is driven by the resolved portal_features for the
+ * active company. Multiple flags can be true; for the initial ticket
+ * we pick the first one in priority order: shop > catalog > full.
+ * Future iteration can render multiple views side-by-side.
  */
 @Component({
   selector: "app-portal-catalog-dispatcher",
   standalone: true,
-  imports: [CommonModule, CatalogOnlyComponent, CatalogComponent],
+  imports: [CommonModule, CatalogOnlyComponent, CatalogComponent, ShopOnlyComponent],
   template: `
-    @if (mode() === 'catalog-only') {
-      <app-catalog-only />
-    } @else {
-      <app-catalog />
+    @switch (mode()) {
+      @case ('shop') {
+        <app-shop-only />
+      }
+      @case ('catalog-only') {
+        <app-catalog-only />
+      }
+      @default {
+        <app-catalog />
+      }
     }
   `,
 })
@@ -41,7 +44,19 @@ export class PortalCatalogDispatcherComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private bookingService = inject(BookingPublicService);
 
-  mode = signal<"catalog-only" | "full">("full");
+  mode = signal<"shop" | "catalog-only" | "full">("full");
+
+  /**
+   * Compute the mode from a portal_features payload. Priority: shop >
+   * catalog-only > full (booking). This is the single source of truth for
+   * the decision — both the localStorage fast-path and the BFF
+   * response go through this function so the logic stays in one place.
+   */
+  private computeMode(features: PortalFeatures): "shop" | "catalog-only" | "full" {
+    if (features.show_shop) return "shop";
+    if (features.show_catalog) return "catalog-only";
+    return "full";
+  }
 
   ngOnInit() {
     const slug =
@@ -50,15 +65,11 @@ export class PortalCatalogDispatcherComponent implements OnInit {
       "";
 
     // 1. Try the localStorage cache written by the parent companyResolver.
-    //    This is synchronous and gives us a value before the BFF even
-    //    returns. If the cache is stale or missing, the BFF call below
-    //    overrides it.
     try {
       const cached = localStorage.getItem("currentCompany");
       if (cached) {
         const parsed = JSON.parse(cached) as Company;
-        const features = resolvePortalFeatures(parsed);
-        this.mode.set(features.show_catalog ? "catalog-only" : "full");
+        this.mode.set(this.computeMode(resolvePortalFeatures(parsed)));
       }
     } catch {
       // localStorage may be unavailable (SSR / private mode) — ignore.
@@ -68,8 +79,7 @@ export class PortalCatalogDispatcherComponent implements OnInit {
     if (slug) {
       this.bookingService.getServices(slug).subscribe({
         next: (res) => {
-          const features = resolvePortalFeatures(res.company ?? null);
-          this.mode.set(features.show_catalog ? "catalog-only" : "full");
+          this.mode.set(this.computeMode(resolvePortalFeatures(res.company ?? null)));
         },
         error: () => {
           // Keep whatever mode was set in step 1 (or the default "full").
@@ -78,3 +88,4 @@ export class PortalCatalogDispatcherComponent implements OnInit {
     }
   }
 }
+
