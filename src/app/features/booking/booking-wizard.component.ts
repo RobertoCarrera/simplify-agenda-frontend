@@ -6,6 +6,8 @@ import { CommonModule } from "@angular/common";
 import {
   BookingPublicService,
   Service,
+  ServiceVariant,
+  VariantPricing,
   Professional,
   BusyPeriod,
   ScheduleEntry,
@@ -40,9 +42,16 @@ import { applyBrandingColors } from "../../shared/branding.utils";
           <div class="service-summary-info">
             <strong>{{ service()!.name }}</strong>
             <span class="service-summary-meta">{{ service()!.duration_minutes }} min</span>
-            @if (service()!.price != null) {
-              <span class="service-summary-price">{{ service()!.price }}€</span>
+            @if (variantName(); as vName) {
+              <span class="service-summary-plan">{{ vName }}</span>
             }
+            <span class="service-summary-price">
+              @if (variantPricing(); as vp) {
+                {{ vp.base_price }}€<span class="plan-period">/ {{ planPeriodLabel(vp.billing_period) }}</span>
+              } @else if (service()!.price != null) {
+                {{ service()!.price }}€
+              }
+            </span>
           </div>
         </div>
       }
@@ -385,6 +394,12 @@ import { applyBrandingColors } from "../../shared/branding.utils";
         color: var(--color-text-secondary);
       }
       .service-summary-price { @apply text-sm font-bold; color: var(--color-text-secondary); }
+      .plan-period { @apply text-xs font-normal; color: var(--color-text-disabled); }
+      .service-summary-plan {
+        @apply text-xs rounded-full px-2 py-0.5 font-semibold;
+        background: var(--color-primary, #10B981);
+        color: var(--color-primary-text, white);
+      }
 
       /* ── Progress bar ── */
       .progress-bar { @apply flex items-center justify-center gap-0 mb-8; }
@@ -586,6 +601,17 @@ export class BookingWizardComponent implements OnInit {
   professionals = signal<Professional[]>([]);
   loadingService = signal(true);
 
+  // Variant (optional). When set, it travels through the booking payload
+  // so the BFF can persist it on the booking and use the right price/period
+  // in the confirmation email and calendar event.
+  variantId = signal<string | null>(null);
+  variantPricing = signal<VariantPricing | null>(null);
+  variantName = computed(() => {
+    const id = this.variantId();
+    if (!id) return null;
+    return this.service()?.variants?.find((v) => v.id === id)?.name ?? null;
+  });
+
   // Form fields (step 1)
   formName = "";
   formPhone = "";
@@ -638,6 +664,20 @@ export class BookingWizardComponent implements OnInit {
           this._pendingProfessionalSlug = profIdentifier;
         } else {
           this.formProfessionalId = profIdentifier;
+        }
+      }
+      // Variant pre-selected from the service-detail step. The detail page
+      // sends variant_id + variant_billing_period + variant_base_price as
+      // separate queryParams (so the URL stays human-readable). We rehydrate
+      // them into a VariantPricing snapshot here.
+      if (qp["variant_id"] && qp["variant_billing_period"] && qp["variant_base_price"]) {
+        const billingPeriod = qp["variant_billing_period"];
+        if (["monthly", "annual", "one_time", "session", "custom"].includes(billingPeriod)) {
+          this.variantId.set(qp["variant_id"]);
+          this.variantPricing.set({
+            base_price: Number(qp["variant_base_price"]),
+            billing_period: billingPeriod as VariantPricing["billing_period"],
+          });
         }
       }
     });
@@ -822,6 +862,8 @@ export class BookingWizardComponent implements OnInit {
         client_phone: this.formPhone || undefined,
         datetime,
         turnstile_token,
+        variant_id: this.variantId() ?? undefined,
+        variant_pricing_snapshot: this.variantPricing() ?? undefined,
       })
       .subscribe({
         next: (res) => {
@@ -886,6 +928,17 @@ export class BookingWizardComponent implements OnInit {
       day: "numeric",
       month: "long",
     }) + " a las " + slot.startTime;
+  }
+
+  planPeriodLabel(period: VariantPricing["billing_period"]): string {
+    const labels: Record<VariantPricing["billing_period"], string> = {
+      monthly: "mes",
+      annual: "año",
+      one_time: "pago único",
+      session: "sesión",
+      custom: "",
+    };
+    return labels[period] || period;
   }
 
   private formatDateParam(date: Date): string {

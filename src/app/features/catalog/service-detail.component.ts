@@ -5,6 +5,8 @@ import { TranslocoModule } from "@jsverse/transloco";
 import {
   BookingPublicService,
   Service,
+  ServiceVariant,
+  VariantPricing,
   Professional,
   Company,
 } from "../../services/booking-public.service";
@@ -31,6 +33,48 @@ import {
 
       <section class="service-description" *ngIf="service()?.description">
         <p>{{ service()?.description }}</p>
+      </section>
+
+      <!-- Variant selector — only shown if the service has variants.
+           Each variant is a card; user picks one variant AND one pricing row
+           (monthly/annual/one_time) before continuing. -->
+      <section
+        class="variants-section"
+        *ngIf="effectiveVariantOptions().length > 1"
+      >
+        <h2>{{ "service.choosePlan" | transloco }}</h2>
+        <div class="variants-grid">
+          <div
+            class="variant-option"
+            *ngFor="let opt of effectiveVariantOptions()"
+            [class.variant-option--selected]="
+              selectedVariantId() === opt.variantId &&
+              selectedBillingPeriod() === opt.pricing.billing_period
+            "
+            [style.border-left-color]="
+              opt.variant.display_config?.color || '#94a3b8'
+            "
+            (click)="selectVariant(opt.variantId, opt.pricing)"
+          >
+            <div class="variant-option-header">
+              <span class="variant-name">{{ opt.variant.name }}</span>
+              <span
+                class="variant-badge"
+                *ngIf="opt.variant.display_config?.badge"
+                [style.background-color]="
+                  opt.variant.display_config?.color || '#94a3b8'
+                "
+                >{{ opt.variant.display_config?.badge }}</span
+              >
+            </div>
+            <div class="variant-price">
+              <span class="price-amount">{{ opt.pricing.base_price }}€</span>
+              <span class="price-period" *ngIf="opt.pricing.billing_period">
+                / {{ periodLabel(opt.pricing.billing_period) }}
+              </span>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="professionals-section">
@@ -66,6 +110,7 @@ import {
       <div class="actions">
         <a
           [routerLink]="['/', slug(), 'reservar', service()?.id]"
+          [queryParams]="reservationQueryParams()"
           class="btn btn-primary btn-lg"
         >
           {{ "service.bookNow" | transloco }}
@@ -154,6 +199,81 @@ import {
         margin: 0;
         color: var(--color-text-secondary);
         line-height: 1.6;
+      }
+
+      .variants-section {
+        margin-bottom: var(--space-8);
+      }
+
+      .variants-section h2 {
+        font-size: var(--font-size-xl);
+        font-weight: var(--font-weight-semibold);
+        margin: 0 0 var(--space-4) 0;
+      }
+
+      .variants-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: var(--space-3);
+      }
+
+      .variant-option {
+        background: var(--color-surface);
+        border: 2px solid var(--color-border);
+        border-left-width: 4px;
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+      }
+
+      .variant-option:hover {
+        border-color: var(--color-primary);
+        transform: translateY(-1px);
+      }
+
+      .variant-option--selected {
+        border-color: var(--color-primary);
+        background: var(--color-surface-elevated, var(--color-surface));
+        box-shadow: 0 0 0 1px var(--color-primary);
+      }
+
+      .variant-option-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        margin-bottom: var(--space-2);
+      }
+
+      .variant-name {
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+      }
+
+      .variant-badge {
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 999px;
+        text-transform: uppercase;
+      }
+
+      .variant-price {
+        display: flex;
+        align-items: baseline;
+        gap: var(--space-1);
+      }
+
+      .price-amount {
+        font-size: var(--font-size-xl);
+        font-weight: var(--font-weight-bold);
+        color: var(--color-secondary);
+      }
+
+      .price-period {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
       }
 
       .professionals-section {
@@ -291,6 +411,64 @@ export class ServiceDetailComponent implements OnInit {
   error = signal<string | null>(null);
   slug = signal<string>("");
 
+  // Variant selection state. Defaults to null; once the user picks one,
+  // these are sent as queryParams to the reservation wizard.
+  selectedVariantId = signal<string | null>(null);
+  selectedPricing = signal<VariantPricing | null>(null);
+  selectedBillingPeriod = computed(() => this.selectedPricing()?.billing_period ?? null);
+
+  /**
+   * Flatten the service's variants into one card per (variant, pricing) row.
+   * Empty arrays (variant without pricing rows) are skipped. If there's only
+   * 1 effective option overall, the section is hidden — there's nothing to
+   * choose between.
+   */
+  effectiveVariantOptions = computed<Array<{ variant: ServiceVariant; variantId: string; pricing: VariantPricing }>>(() => {
+    const svc = this.service();
+    if (!svc?.variants) return [];
+    const opts: Array<{ variant: ServiceVariant; variantId: string; pricing: VariantPricing }> = [];
+    for (const v of svc.variants) {
+      if (!v.pricing || v.pricing.length === 0) continue;
+      for (const p of v.pricing) {
+        opts.push({ variant: v, variantId: v.id, pricing: p });
+      }
+    }
+    return opts;
+  });
+
+  /**
+   * Query params to attach to the "Reservar ahora" link. Only sets the variant
+   * fields if a selection exists — otherwise the wizard proceeds with the
+   * service base price (backwards-compatible).
+   */
+  reservationQueryParams = computed(() => {
+    const params: Record<string, string> = {};
+    const vid = this.selectedVariantId();
+    const price = this.selectedPricing();
+    if (vid) params["variant_id"] = vid;
+    if (price) {
+      params["variant_billing_period"] = price.billing_period;
+      params["variant_base_price"] = String(price.base_price);
+    }
+    return params;
+  });
+
+  periodLabel(period: VariantPricing["billing_period"]): string {
+    const labels: Record<VariantPricing["billing_period"], string> = {
+      monthly: "mes",
+      annual: "año",
+      one_time: "pago único",
+      session: "sesión",
+      custom: "",
+    };
+    return labels[period] || period;
+  }
+
+  selectVariant(variantId: string, pricing: VariantPricing) {
+    this.selectedVariantId.set(variantId);
+    this.selectedPricing.set(pricing);
+  }
+
   ngOnInit() {
     // Get slug from route
     this.route.paramMap.subscribe((params) => {
@@ -348,7 +526,10 @@ export class ServiceDetailComponent implements OnInit {
   bookWithProfessional(professional: Professional) {
     const currentSlug = this.slug();
     this.router.navigate(["/", currentSlug, "reservar", this.service()?.id], {
-      queryParams: { professional: professional.id },
+      queryParams: {
+        professional: professional.id,
+        ...this.reservationQueryParams(),
+      },
     });
   }
 }

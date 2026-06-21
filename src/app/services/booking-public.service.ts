@@ -17,6 +17,22 @@ export interface Company {
   enabled_filters?: ('services' | 'professionals' | 'duration')[];
 }
 
+export interface VariantPricing {
+  base_price: number;
+  billing_period: "monthly" | "annual" | "one_time" | "session" | "custom";
+  estimated_hours?: number;
+  discount_percentage?: number;
+  cost_price?: number | null;
+  profit_margin?: number;
+}
+
+export interface ServiceVariant {
+  id: string;
+  name: string;
+  pricing: VariantPricing[];
+  display_config?: { color?: string; badge?: string } | null;
+}
+
 export interface Service {
   id: string;
   name: string;
@@ -26,6 +42,7 @@ export interface Service {
   color?: string;
   professionals?: Professional[];
   company?: Company;
+  variants?: ServiceVariant[];
 }
 
 export interface Professional {
@@ -92,6 +109,8 @@ export interface CreateBookingPayload {
   client_phone?: string;
   datetime: string; // ISO 8601: "YYYY-MM-DDTHH:MM:SSZ" or with offset
   turnstile_token: string;
+  variant_id?: string;
+  variant_pricing_snapshot?: VariantPricing;
 }
 
 export interface BookingResponse {
