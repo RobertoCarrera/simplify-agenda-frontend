@@ -155,6 +155,25 @@ export interface BookingResponse {
   message?: string;
 }
 
+export interface CreateLeadPayload {
+  company_slug: string;
+  service_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  message?: string;
+  variant_id?: string;
+  variant_pricing_snapshot?: VariantPricing;
+  turnstile_token: string;
+}
+
+export interface LeadResponse {
+  success: boolean;
+  lead_id?: string;
+  message?: string;
+}
+
 // ============================================================================
 // Service
 // ============================================================================
@@ -245,6 +264,31 @@ export class BookingPublicService {
           console.error("Error creating booking:", err);
           return throwError(
             () => new Error(err.message || "Error creating booking"),
+          );
+        }),
+      );
+  }
+
+  /**
+   * Create a new lead (catalog mode: customer wants to "Contratar" a service
+   * tier from the catalog). The BFF inserts a row into the CRM's leads
+   * table so the company owner can follow up.
+   * POST /create-lead
+   */
+  createLead(payload: CreateLeadPayload): Observable<LeadResponse> {
+    return this.http
+      .post<LeadResponse>(`${this.baseUrl}/create-lead`, {
+        ...payload,
+        // The BFF expects `action: 'create-lead'` to dispatch to the lead
+        // pipeline. The action discriminator lives in the BFF request body,
+        // not in the URL.
+        action: "create-lead",
+      })
+      .pipe(
+        catchError((err) => {
+          console.error("Error creating lead:", err);
+          return throwError(
+            () => new Error(err?.error?.error || err.message || "Error creating lead"),
           );
         }),
       );
