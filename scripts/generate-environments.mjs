@@ -46,6 +46,13 @@ const bffBaseUrl =
   process.env.BFF_BASE_URL ||
   "https://ufutyjbqfjrlzkprvyvs.supabase.co/functions/v1/booking-public";
 
+// When the user is ready to do the BFF rename atomically, change this
+// to 'https://ufutyjbqfjrlzkprvyvs.supabase.co/functions/v1/portal-public'
+// AND ensure both the rename AND the Vercel env var happen in the same
+// deploy. Don't do them independently — that creates a window where
+// the frontend calls a function that exists but the user has not been
+// redirected, or vice versa.
+
 const supabaseFunctionsUrl =
   process.env.SUPABASE_FUNCTIONS_URL ||
   "https://ufutyjbqfjrlzkprvyvs.supabase.co/functions/v1";
@@ -57,7 +64,7 @@ const bookingApiKey = requireEnv("BOOKING_API_KEY");
 const base = `  bffBaseUrl: "${bffBaseUrl}",
   supabaseFunctionsUrl: "${supabaseFunctionsUrl}",
   turnstileSiteKey: "${turnstileSiteKey}",
-  clientId: "simplifica-portal-frontend",
+  clientId: "simplifica-agenda-frontend",
   supabaseAnonKey: "${supabaseAnonKey}",
   bookingApiKey: "${bookingApiKey}",`;
 
