@@ -57,7 +57,7 @@ const bookingApiKey = requireEnv("BOOKING_API_KEY");
 const base = `  bffBaseUrl: "${bffBaseUrl}",
   supabaseFunctionsUrl: "${supabaseFunctionsUrl}",
   turnstileSiteKey: "${turnstileSiteKey}",
-  clientId: "simplifica-agenda-frontend",
+  clientId: "simplifica-portal-frontend",
   supabaseAnonKey: "${supabaseAnonKey}",
   bookingApiKey: "${bookingApiKey}",`;
 

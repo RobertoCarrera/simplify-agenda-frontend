@@ -1,7 +1,7 @@
 {
-  "name": "simplify-agenda-frontend",
+  "name": "simplify-portal-frontend",
   "version": "1.0.0",
-  "description": "Public booking agenda for Simplifica CRM - Angular 21 standalone",
+  "description": "Public portal for Simplifica CRM - Angular 21 standalone (renamed from simplify-agenda-frontend on 2026-06-21)",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",

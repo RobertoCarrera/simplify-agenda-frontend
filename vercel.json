@@ -8,6 +8,19 @@
     }
   },
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "agenda.simplificacrm.es"
+        }
+      ],
+      "destination": "https://portal.simplificacrm.es/:path*",
+      "statusCode": 301
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
