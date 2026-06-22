@@ -8,6 +8,7 @@ import {
   Product,
 } from "../../services/booking-public.service";
 import { applyBrandingColors } from "../../shared/branding.utils";
+import { CartService } from "../../shared/services/cart.service";
 
 /**
  * Shop-only view for companies whose portal_features.show_shop = true.
@@ -156,9 +157,31 @@ import { applyBrandingColors } from "../../shared/branding.utils";
                   }
                 </div>
                 <div class="product-card-bottom">
-                  <button type="button" class="btn-add" (click)="addToCart(product)">
-                    Añadir al carrito
-                  </button>
+                  @if (cart.quantityOf(product.id) > 0) {
+                    <div class="qty-stepper">
+                      <button
+                        type="button"
+                        class="qty-btn"
+                        (click)="decreaseQty(product)"
+                        aria-label="Quitar uno del carrito"
+                      >
+                        <i class="fas fa-minus"></i>
+                      </button>
+                      <span class="qty-value">{{ cart.quantityOf(product.id) }}</span>
+                      <button
+                        type="button"
+                        class="qty-btn"
+                        (click)="addToCart(product)"
+                        aria-label="Añadir uno más al carrito"
+                      >
+                        <i class="fas fa-plus"></i>
+                      </button>
+                    </div>
+                  } @else {
+                    <button type="button" class="btn-add" (click)="addToCart(product)">
+                      <i class="fas fa-cart-plus"></i> Añadir al carrito
+                    </button>
+                  }
                 </div>
               </div>
             }
@@ -454,8 +477,46 @@ import { applyBrandingColors } from "../../shared/branding.utils";
         font-weight: 600;
         cursor: pointer;
         transition: background 150ms ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-family: inherit;
       }
       .btn-add:hover { filter: brightness(1.1); }
+      .btn-add i { font-size: 0.8125rem; }
+
+      /* ── Quantity stepper (shown once the product is in the cart) ── */
+      .qty-stepper {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        border: 1px solid var(--color-primary, #10B981);
+        border-radius: 0.5rem;
+        overflow: hidden;
+        background: var(--color-surface);
+      }
+      .qty-btn {
+        background: transparent;
+        border: none;
+        color: var(--color-primary, #10B981);
+        padding: 0.5rem 0.875rem;
+        font-size: 0.875rem;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 150ms ease;
+        flex-shrink: 0;
+      }
+      .qty-btn:hover { background: rgba(16, 185, 129, 0.1); }
+      .qty-value {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: var(--color-text);
+        padding: 0 0.5rem;
+        min-width: 2rem;
+        text-align: center;
+      }
 
       @media (max-width: 640px) {
         .shop-page { padding: 1rem 0.75rem 3rem; }
@@ -469,6 +530,7 @@ import { applyBrandingColors } from "../../shared/branding.utils";
 export class ShopOnlyComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private bookingService = inject(BookingPublicService);
+  cart = inject(CartService);
 
   loading = signal(true);
   error = signal<string | null>(null);
@@ -544,17 +606,20 @@ export class ShopOnlyComponent implements OnInit {
     });
   }
 
-  isLowStock(product: Product): boolean {
-    return (product.stock_quantity ?? 0) <= 5;
+  addToCart(product: Product) {
+    this.cart.add(product);
   }
 
-  addToCart(product: Product) {
-    // Stub: real cart is a future ticket. For now, log and visually confirm
-    // the click so the operator can see the button is wired.
-    // eslint-disable-next-line no-console
-    console.log("[shop] add to cart:", product.id, product.name);
-    // A real implementation would push to a CartService, update a cart
-    // counter in the header, and persist to localStorage. None of that
-    // exists yet.
+  decreaseQty(product: Product) {
+    const current = this.cart.quantityOf(product.id);
+    if (current <= 1) {
+      this.cart.remove(product.id);
+    } else {
+      this.cart.setQuantity(product.id, current - 1);
+    }
+  }
+
+  isLowStock(product: Product): boolean {
+    return (product.stock_quantity ?? 0) <= 5;
   }
 }
