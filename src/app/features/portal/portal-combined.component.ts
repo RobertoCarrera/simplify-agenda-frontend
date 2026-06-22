@@ -1,4 +1,11 @@
-import { Component, OnInit, inject, signal, computed } from "@angular/core";
+import {
+  Component,
+  OnInit,
+  inject,
+  signal,
+  computed,
+  ElementRef,
+} from "@angular/core";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { CommonModule } from "@angular/common";
 import { TranslocoModule } from "@jsverse/transloco";
@@ -14,27 +21,25 @@ import {
 } from "../../services/booking-public.service";
 import { applyBrandingColors } from "../../shared/branding.utils";
 import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
+import { CartService } from "../../shared/services/cart.service";
 
 /**
- * Combined portal view: when the owner enables multiple portal
- * capabilities (booking + catalog + shop), the dispatcher renders ALL
- * of them on the same page as distinct sections, separated by
- * horizontal rules. The customer can:
+ * Tabbed portal shell. When a company has 2+ portal modes active
+ * (booking + catalog + shop), this renders a top tab strip and shows
+ * only the active section — so the customer doesn't have to scroll
+ * through everything. When only one mode is active, the tab strip
+ * is hidden and the corresponding section renders directly.
  *
- *   1. Browse bookable services and click "Reservar" (booking flow).
- *   2. Browse the catalog of services and plans and click "Contratar"
- *      (lead flow).
- *   3. Browse the product grid and click "Añadir al carrito"
- *      (shop flow stub).
+ * The active tab defaults to `portal_features.default_mode` if set,
+ * otherwise the first active mode in order booking > catalog > shop.
+ * The owner can change the default from CRM Settings.
  *
- * Order is fixed: booking → catalog → shop. This mirrors the typical
- * funnel: the highest-commitment action first.
- *
- * Sections with no data are hidden automatically (zero products → no
- * shop section rendered, no services → no booking section rendered, etc.).
- *
- * The previous dispatcher picked ONE mode and hid the rest; that was
- * too restrictive for owners who want their full offering visible.
+ * Accessibility:
+ *   - The tab strip is `role="tablist"` with `aria-label`.
+ *   - Each tab is a `<button role="tab" aria-selected aria-controls>`.
+ *   - The section is `role="tabpanel"` with `aria-labelledby` pointing
+ *     to the active tab.
+ *   - Left/Right arrow keys move focus between tabs and activate them.
  */
 @Component({
   selector: "app-portal-combined",
@@ -62,7 +67,7 @@ import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
             <img class="company-logo" [src]="company()!.logo_url" [alt]="company()!.name" />
           } @else {
             <div class="company-logo-placeholder">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
@@ -74,131 +79,245 @@ import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
           </div>
         </header>
 
-        @if (features().show_booking && bookableServices().length > 0) {
-          <section class="portal-section">
-            <h2 class="section-title">
-              <i class="fas fa-calendar-check"></i>
-              Reservar cita
-            </h2>
-            <p class="section-subtitle">Elige un servicio y un horario disponible.</p>
-            <div class="services-grid">
-              @for (svc of bookableServices(); track svc.id) {
-                <div class="service-card">
-                  <div class="service-card-top">
-                    <span class="service-dot" [style.background]="svc.color || '#94a3b8'"></span>
-                    <div class="service-card-info">
-                      <h3 class="service-name">{{ svc.name }}</h3>
-                      @if (svc.description) {
-                        <p class="service-desc">{{ svc.description | stripHtml }}</p>
-                      }
-                    </div>
-                    @if (svc.price != null) {
-                      <span class="service-price">{{ svc.price }}€</span>
-                    }
-                  </div>
-                  <div class="service-card-bottom">
-                    <span class="duration-badge">{{ svc.duration_minutes }} min</span>
-                    <a
-                      class="btn btn-contratar"
-                      [routerLink]="['/', slug(), 'reservar', svc.id]"
-                    >Reservar</a>
-                  </div>
-                </div>
-              }
-            </div>
-          </section>
+        @if (activeModeCount() >= 2) {
+          <nav class="portal-tabs" role="tablist" aria-label="Secciones del portal">
+            @if (bookingVisible()) {
+              <button
+                type="button"
+                role="tab"
+                class="portal-tab"
+                [id]="tabId('booking')"
+                [attr.aria-selected]="activeTab() === 'booking'"
+                [attr.aria-controls]="panelId('booking')"
+                [attr.tabindex]="activeTab() === 'booking' ? 0 : -1"
+                (click)="setTab('booking')"
+                (keydown)="onTabKeydown($event, 'booking')"
+              >
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                  <polyline points="9 16 11 18 15 14"></polyline>
+                </svg>
+                Reservar cita
+              </button>
+            }
+            @if (catalogVisible()) {
+              <button
+                type="button"
+                role="tab"
+                class="portal-tab"
+                [id]="tabId('catalog')"
+                [attr.aria-selected]="activeTab() === 'catalog'"
+                [attr.aria-controls]="panelId('catalog')"
+                [attr.tabindex]="activeTab() === 'catalog' ? 0 : -1"
+                (click)="setTab('catalog')"
+                (keydown)="onTabKeydown($event, 'catalog')"
+              >
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+                Servicios y planes
+              </button>
+            }
+            @if (shopVisible()) {
+              <button
+                type="button"
+                role="tab"
+                class="portal-tab"
+                [id]="tabId('shop')"
+                [attr.aria-selected]="activeTab() === 'shop'"
+                [attr.aria-controls]="panelId('shop')"
+                [attr.tabindex]="activeTab() === 'shop' ? 0 : -1"
+                (click)="setTab('shop')"
+                (keydown)="onTabKeydown($event, 'shop')"
+              >
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <path d="M16 10a4 4 0 0 1-8 0"></path>
+                </svg>
+                Tienda
+              </button>
+            }
+          </nav>
         }
 
-        @if (features().show_catalog && catalogServices().length > 0) {
-          <section class="portal-section">
-            <h2 class="section-title">
-              <i class="fas fa-list-ul"></i>
-              Servicios y planes
-            </h2>
-            <p class="section-subtitle">Contrata un servicio o un plan sin elegir horario.</p>
-            <div class="services-grid">
-              @for (svc of catalogServices(); track svc.id) {
-                <div class="service-card">
-                  <div class="service-card-top">
-                    <span class="service-dot" [style.background]="svc.color || '#94a3b8'"></span>
-                    <div class="service-card-info">
-                      <h3 class="service-name">{{ svc.name }}</h3>
-                      @if (svc.description) {
-                        <p class="service-desc">{{ svc.description | stripHtml }}</p>
-                      }
+        @switch (activeTab()) {
+          @case ('booking') {
+            <section
+              [id]="panelId('booking')"
+              role="tabpanel"
+              [attr.aria-labelledby]="tabId('booking')"
+              class="portal-section"
+            >
+              <h2 class="section-title">
+                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                  <polyline points="9 16 11 18 15 14"></polyline>
+                </svg>
+                Reservar cita
+              </h2>
+              <p class="section-subtitle">Elige un servicio y un horario disponible.</p>
+              @if (bookingVisible()) {
+                <div class="services-grid">
+                  @for (svc of bookableServices(); track svc.id) {
+                    <div class="service-card">
+                      <div class="service-card-top">
+                        <span class="service-dot" [style.background]="svc.color || '#94a3b8'"></span>
+                        <div class="service-card-info">
+                          <h3 class="service-name">{{ svc.name }}</h3>
+                          @if (svc.description) {
+                            <p class="service-desc">{{ svc.description | stripHtml }}</p>
+                          }
+                        </div>
+                        @if (svc.price != null) {
+                          <span class="service-price">{{ svc.price }}€</span>
+                        }
+                      </div>
+                      <div class="service-card-bottom">
+                        <span class="duration-badge">{{ svc.duration_minutes }} min</span>
+                        <a
+                          class="btn btn-contratar"
+                          [routerLink]="['/', slug(), 'reservar', svc.id]"
+                        >Reservar</a>
+                      </div>
                     </div>
-                    @if (variantOptionsFor(svc).length === 0 && svc.price != null) {
-                      <span class="service-price">{{ svc.price }}€</span>
-                    }
-                  </div>
+                  }
+                </div>
+              } @else {
+                <div class="section-empty">No hay servicios disponibles para reservar.</div>
+              }
+            </section>
+          }
+          @case ('catalog') {
+            <section
+              [id]="panelId('catalog')"
+              role="tabpanel"
+              [attr.aria-labelledby]="tabId('catalog')"
+              class="portal-section"
+            >
+              <h2 class="section-title">
+                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+                Servicios y planes
+              </h2>
+              <p class="section-subtitle">Contrata un servicio o un plan sin elegir horario.</p>
+              @if (catalogVisible()) {
+                <div class="services-grid">
+                  @for (svc of catalogServices(); track svc.id) {
+                    <div class="service-card">
+                      <div class="service-card-top">
+                        <span class="service-dot" [style.background]="svc.color || '#94a3b8'"></span>
+                        <div class="service-card-info">
+                          <h3 class="service-name">{{ svc.name }}</h3>
+                          @if (svc.description) {
+                            <p class="service-desc">{{ svc.description | stripHtml }}</p>
+                          }
+                        </div>
+                        @if (variantOptionsFor(svc).length === 0 && svc.price != null) {
+                          <span class="service-price">{{ svc.price }}€</span>
+                        }
+                      </div>
 
-                  @if (variantOptionsFor(svc).length > 0) {
-                    <div class="tier-list">
-                      @for (tier of variantOptionsFor(svc); track tier.variantId + '::' + tier.pricing.billing_period) {
-                        <button
-                          type="button"
-                          class="tier-row"
-                          [style.border-left-color]="tier.variant.display_config?.color || 'var(--color-primary)'"
-                          (click)="requestService(svc, tier)"
-                        >
-                          <span class="tier-name">{{ tier.variant.name }}</span>
-                          <span class="tier-price">
-                            <span class="tier-amount">{{ tier.pricing.base_price }}€</span>
-                            <span class="tier-period" *ngIf="tier.pricing.billing_period">/ {{ periodLabel(tier.pricing.billing_period) }}</span>
-                          </span>
+                      @if (variantOptionsFor(svc).length > 0) {
+                        <div class="tier-list">
+                          @for (tier of variantOptionsFor(svc); track tier.variantId + '::' + tier.pricing.billing_period) {
+                            <button
+                              type="button"
+                              class="tier-row"
+                              [style.border-left-color]="tier.variant.display_config?.color || 'var(--color-primary)'"
+                              (click)="requestService(svc, tier)"
+                            >
+                              <span class="tier-name">{{ tier.variant.name }}</span>
+                              <span class="tier-price">
+                                <span class="tier-amount">{{ tier.pricing.base_price }}€</span>
+                                <span class="tier-period" *ngIf="tier.pricing.billing_period">/ {{ periodLabel(tier.pricing.billing_period) }}</span>
+                              </span>
+                            </button>
+                          }
+                        </div>
+                      }
+
+                      <div class="service-card-bottom">
+                        <span class="duration-badge">{{ svc.duration_minutes }} min · entrega estimada</span>
+                        @if (variantOptionsFor(svc).length === 0) {
+                          <a
+                            class="btn btn-contratar"
+                            [routerLink]="['/', slug(), 'contratar', svc.id]"
+                          >Contratar</a>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="section-empty">No hay servicios en el catálogo.</div>
+              }
+            </section>
+          }
+          @case ('shop') {
+            <section
+              [id]="panelId('shop')"
+              role="tabpanel"
+              [attr.aria-labelledby]="tabId('shop')"
+              class="portal-section"
+            >
+              <h2 class="section-title">
+                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <path d="M16 10a4 4 0 0 1-8 0"></path>
+                </svg>
+                Productos
+              </h2>
+              <p class="section-subtitle">Explora nuestros productos.</p>
+              @if (shopVisible()) {
+                <div class="products-grid">
+                  @for (product of products(); track product.id) {
+                    <div class="product-card">
+                      <div class="product-card-top">
+                        <h3 class="product-name">{{ product.name }}</h3>
+                        @if (product.price != null) {
+                          <span class="product-price">{{ product.price }}€</span>
+                        }
+                      </div>
+                      @if (product.description) {
+                        <p class="product-desc">{{ product.description }}</p>
+                      }
+                      @if (product.stock_quantity != null) {
+                        <p class="product-stock" [class.low-stock]="isLowStock(product)">
+                          {{ isLowStock(product) ? '¡Pocas unidades!' : 'En stock' }} ({{ product.stock_quantity }})
+                        </p>
+                      }
+                      <div class="product-card-bottom">
+                        <button type="button" class="btn-add" (click)="addToCart(product)">
+                          Añadir al carrito
                         </button>
-                      }
+                      </div>
                     </div>
                   }
-
-                  <div class="service-card-bottom">
-                    <span class="duration-badge">{{ svc.duration_minutes }} min · entrega estimada</span>
-                    @if (variantOptionsFor(svc).length === 0) {
-                      <a
-                        class="btn btn-contratar"
-                        [routerLink]="['/', slug(), 'contratar', svc.id]"
-                      >Contratar</a>
-                    }
-                  </div>
                 </div>
+              } @else {
+                <div class="section-empty">No hay productos en la tienda.</div>
               }
-            </div>
-          </section>
-        }
-
-        @if (features().show_shop && products().length > 0) {
-          <section class="portal-section">
-            <h2 class="section-title">
-              <i class="fas fa-shopping-bag"></i>
-              Productos
-            </h2>
-            <p class="section-subtitle">Explora nuestros productos.</p>
-            <div class="products-grid">
-              @for (product of products(); track product.id) {
-                <div class="product-card">
-                  <div class="product-card-top">
-                    <h3 class="product-name">{{ product.name }}</h3>
-                    @if (product.price != null) {
-                      <span class="product-price">{{ product.price }}€</span>
-                    }
-                  </div>
-                  @if (product.description) {
-                    <p class="product-desc">{{ product.description }}</p>
-                  }
-                  @if (product.stock_quantity != null) {
-                    <p class="product-stock" [class.low-stock]="isLowStock(product)">
-                      {{ isLowStock(product) ? '¡Pocas unidades!' : 'En stock' }} ({{ product.stock_quantity }})
-                    </p>
-                  }
-                  <div class="product-card-bottom">
-                    <button type="button" class="btn-add" (click)="addToCart(product)">
-                      Añadir al carrito
-                    </button>
-                  </div>
-                </div>
-              }
-            </div>
-          </section>
+            </section>
+          }
         }
       </div>
     }
@@ -287,13 +406,50 @@ import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
         opacity: 0.7;
       }
 
-      .portal-section {
-        margin-bottom: 3rem;
-        padding-bottom: 2rem;
+      /* ── Tab strip ── */
+      .portal-tabs {
+        display: flex;
+        gap: 0.125rem;
         border-bottom: 1px solid var(--color-border);
+        margin-bottom: 2rem;
+        overflow-x: auto;
+        scrollbar-width: thin;
       }
-      .portal-section:last-child {
-        border-bottom: none;
+      .portal-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        font-size: 0.9375rem;
+        font-weight: 500;
+        font-family: inherit;
+        color: var(--color-text-secondary);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: color 150ms ease, border-color 150ms ease;
+      }
+      .portal-tab:hover { color: var(--color-text); }
+      .portal-tab[aria-selected="true"] {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+      }
+      .portal-tab:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: -2px;
+        border-radius: 0.25rem 0.25rem 0 0;
+      }
+      .portal-tab .tab-icon {
+        width: 1.125rem;
+        height: 1.125rem;
+        flex-shrink: 0;
+      }
+
+      .portal-section {
+        margin-bottom: 2rem;
       }
       .section-title {
         display: flex;
@@ -304,13 +460,25 @@ import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
         margin: 0 0 0.25rem;
         color: var(--color-text);
       }
-      .section-title i {
+      .section-title .section-icon {
         color: var(--color-primary);
+        width: 1.375rem;
+        height: 1.375rem;
+        flex-shrink: 0;
       }
       .section-subtitle {
         font-size: 0.875rem;
         color: var(--color-text-secondary);
         margin: 0 0 1.25rem;
+      }
+      .section-empty {
+        text-align: center;
+        padding: 2.5rem 1rem;
+        color: var(--color-text-secondary);
+        background: var(--color-surface);
+        border: 1px dashed var(--color-border);
+        border-radius: 0.625rem;
+        font-size: 0.9375rem;
       }
 
       .services-grid, .products-grid {
@@ -471,12 +639,14 @@ import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
         color: white;
         border: none;
         cursor: pointer;
+        font-family: inherit;
       }
       .btn-contratar:hover, .btn-add:hover { filter: brightness(1.1); }
 
       @media (max-width: 640px) {
         .portal-page { padding: 1rem 0.75rem 3rem; }
         .portal-header h1 { font-size: 1.35rem; }
+        .portal-tab { padding: 0.625rem 0.875rem; font-size: 0.875rem; }
         .services-grid, .products-grid { grid-template-columns: 1fr; gap: 0.875rem; }
         .service-card, .product-card { padding: 1rem; }
       }
@@ -487,6 +657,8 @@ export class PortalCombinedComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private bookingService = inject(BookingPublicService);
+  private cartService = inject(CartService);
+  private hostEl = inject(ElementRef<HTMLElement>);
 
   loading = signal(true);
   loadError = signal<string | null>(null);
@@ -504,20 +676,37 @@ export class PortalCombinedComponent implements OnInit {
 
   slug = signal<string>("");
 
-  /**
-   * Services visible in the booking section: only those with variants
-   * OR a base_price. The BFF already returns only services with
-   * is_public + is_bookable + is_active = true, so this is the
-   * same set the booking wizard would see.
-   */
-  bookableServices = computed<Service[]>(() => this.services());
+  /** Which tab is currently active. One of "booking" | "catalog" | "shop". */
+  activeTab = signal<"booking" | "catalog" | "shop">("booking");
 
   /**
-   * Services visible in the catalog section: any service (the catalog
-   * is for display; tiers, if present, drive the CTA). When a service
-   * has variants, the tier list is rendered and the price pill is
-   * hidden (the price is shown per tier).
+   * Whether each section is actually renderable (mode active AND has data).
+   * Drives both the tab strip and the empty-state inside each panel.
    */
+  bookingVisible = computed(
+    () => this.features().show_booking && this.bookableServices().length > 0,
+  );
+  catalogVisible = computed(
+    () => this.features().show_catalog && this.catalogServices().length > 0,
+  );
+  shopVisible = computed(
+    () => this.features().show_shop && this.products().length > 0,
+  );
+
+  /**
+   * How many sections are renderable. Drives whether the tab strip
+   * shows at all (1 section = no tabs, go straight to it).
+   */
+  activeModeCount = computed(
+    () =>
+      (this.bookingVisible() ? 1 : 0) +
+      (this.catalogVisible() ? 1 : 0) +
+      (this.shopVisible() ? 1 : 0),
+  );
+
+  /** Services visible in the booking section. */
+  bookableServices = computed<Service[]>(() => this.services());
+  /** Services visible in the catalog section. */
   catalogServices = computed<Service[]>(() => this.services());
 
   ngOnInit() {
@@ -537,12 +726,105 @@ export class PortalCombinedComponent implements OnInit {
         this.products.set(res.products ?? []);
         this.features.set(resolvePortalFeatures(res.company ?? null));
         this.loading.set(false);
+        // Pick the initial active tab once the data is loaded.
+        this.activeTab.set(this.pickInitialTab());
       },
       error: (err) => {
         this.loadError.set(err?.error?.error || err.message || "Error al cargar el portal");
         this.loading.set(false);
       },
     });
+  }
+
+  /**
+   * Choose which tab to show first:
+   *   1. portal_features.default_mode, if that mode is active and has data.
+   *   2. Otherwise, the first active mode in order: booking > catalog > shop.
+   *   3. If no mode is renderable, fall back to "booking" so the @switch
+   *      always lands on a valid branch.
+   */
+  private pickInitialTab(): "booking" | "catalog" | "shop" {
+    const wanted = this.features().default_mode;
+    if (wanted === "booking" && this.bookingVisible()) return "booking";
+    if (wanted === "catalog" && this.catalogVisible()) return "catalog";
+    if (wanted === "shop" && this.shopVisible()) return "shop";
+    if (this.bookingVisible()) return "booking";
+    if (this.catalogVisible()) return "catalog";
+    if (this.shopVisible()) return "shop";
+    return "booking";
+  }
+
+  /** Switch to a tab and move focus to its button. */
+  setTab(tab: "booking" | "catalog" | "shop") {
+    if (this.activeTab() === tab) return;
+    this.activeTab.set(tab);
+    // Move DOM focus to the newly-active tab so screen readers
+    // announce the change and keyboard users keep a consistent
+    // focus origin.
+    queueMicrotask(() => {
+      const el = this.hostEl.nativeElement.querySelector(
+        `#${this.tabId(tab)}`,
+      );
+      if (el instanceof HTMLElement) {
+        el.focus();
+      }
+    });
+  }
+
+  /**
+   * Keyboard navigation for the tab strip:
+   *   ArrowRight / ArrowDown → next tab
+   *   ArrowLeft / ArrowUp   → previous tab
+   *   Home                   → first tab
+   *   End                    → last tab
+   * Standard ARIA Authoring Practices for tabs.
+   */
+  onTabKeydown(event: KeyboardEvent, current: "booking" | "catalog" | "shop") {
+    const order: Array<"booking" | "catalog" | "shop"> = ["booking", "catalog", "shop"];
+    // Only consider tabs that are actually visible.
+    const visible = order.filter((t) => this.tabVisible(t));
+    if (visible.length === 0) return;
+
+    const idx = visible.indexOf(current);
+    let next: "booking" | "catalog" | "shop" | null = null;
+
+    switch (event.key) {
+      case "ArrowRight":
+      case "ArrowDown":
+        next = visible[(idx + 1) % visible.length];
+        break;
+      case "ArrowLeft":
+      case "ArrowUp":
+        next = visible[(idx - 1 + visible.length) % visible.length];
+        break;
+      case "Home":
+        next = visible[0];
+        break;
+      case "End":
+        next = visible[visible.length - 1];
+        break;
+      default:
+        return;
+    }
+
+    if (next && next !== current) {
+      event.preventDefault();
+      this.setTab(next);
+    }
+  }
+
+  private tabVisible(tab: "booking" | "catalog" | "shop"): boolean {
+    if (tab === "booking") return this.bookingVisible();
+    if (tab === "catalog") return this.catalogVisible();
+    return this.shopVisible();
+  }
+
+  tabId(tab: "booking" | "catalog" | "shop"): string {
+    return `portal-tab-${tab}`;
+  }
+
+  panelId(tab: "booking" | "catalog" | "shop"): string {
+    return `portal-panel-${tab}`;
   }
 
   variantOptionsFor(svc: Service): Array<{ variant: ServiceVariant; variantId: string; pricing: VariantPricing }> {
@@ -572,9 +854,14 @@ export class PortalCombinedComponent implements OnInit {
     return (product.stock_quantity ?? 0) <= 5;
   }
 
+  /**
+   * Add a product to the customer's cart. Previously this method only
+   * logged to the console, which is why the cart icon never updated.
+   * It now goes through CartService, which persists to localStorage and
+   * updates the cart badge in the header in real time.
+   */
   addToCart(product: Product) {
-    // eslint-disable-next-line no-console
-    console.log("[portal-combined] add to cart:", product.id, product.name);
+    this.cartService.add(product);
   }
 
   requestService(svc: Service, tier: { variantId: string; pricing: VariantPricing }) {

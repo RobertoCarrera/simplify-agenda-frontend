@@ -33,6 +33,14 @@ export interface PortalFeatures {
   show_shop: boolean;
   show_professionals: boolean;
   show_availability: boolean;
+  /**
+   * Which section the customer sees first when the portal has
+   * multiple modes active. Owners set this from CRM Settings →
+   * Reservas → "Portal público — modos disponibles". If missing
+   * or pointing to a disabled mode, the shell falls back to the
+   * first active mode in order: booking > catalog > shop.
+   */
+  default_mode?: "booking" | "catalog" | "shop";
 }
 
 export interface VariantPricing {
@@ -189,6 +197,37 @@ export interface LeadResponse {
   message?: string;
 }
 
+/**
+ * Single cart line. Mirrors the shape the BFF expects for the
+ * cart-request action — every line must have a productId, name, and
+ * positive integer quantity. Price can be null (some products are
+ * "consult price" and the BFF keeps the null through the pipeline).
+ */
+export interface CartLineItem {
+  productId: string;
+  name: string;
+  price: number | null;
+  quantity: number;
+}
+
+export interface CreateCartRequestPayload {
+  company_slug: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  message?: string;
+  items: CartLineItem[];
+  total: number;
+  turnstile_token: string;
+}
+
+export interface CartRequestResponse {
+  success: boolean;
+  lead_id?: string;
+  message?: string;
+}
+
 // ============================================================================
 // Service
 // ============================================================================
@@ -304,6 +343,36 @@ export class BookingPublicService {
           console.error("Error creating lead:", err);
           return throwError(
             () => new Error(err?.error?.error || err.message || "Error creating lead"),
+          );
+        }),
+      );
+  }
+
+  /**
+   * Submit a cart request (shop mode: customer added several products to
+   * the cart from the portal shop view and clicked "Enviar solicitud").
+   * The BFF inserts ONE lead row with the line items embedded in the
+   * metadata, instead of one lead per product, so the owner sees the full
+   * cart in the CRM.
+   * POST /create-cart-request
+   */
+  createCartRequest(payload: CreateCartRequestPayload): Observable<CartRequestResponse> {
+    return this.http
+      .post<CartRequestResponse>(`${this.baseUrl}/create-cart-request`, {
+        ...payload,
+        // Same convention as createLead: the BFF dispatches on `action`
+        // before its strict BookingSchema check, because the cart shape
+        // (items[], total) isn't in the shared schema.
+        action: "cart-request",
+      })
+      .pipe(
+        catchError((err) => {
+          console.error("Error creating cart request:", err);
+          return throwError(
+            () =>
+              new Error(
+                err?.error?.error || err.message || "Error creating cart request",
+              ),
           );
         }),
       );
