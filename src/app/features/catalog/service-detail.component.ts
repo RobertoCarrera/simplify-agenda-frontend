@@ -43,7 +43,7 @@ import {
         *ngIf="effectiveVariantOptions().length > 1"
       >
         <h2>{{ "service.choosePlan" | transloco }}</h2>
-        <div class="variants-grid">
+        <div class="variants-grid" role="radiogroup" [attr.aria-label]="'Selecciona un plan'">
           <div
             class="variant-option"
             *ngFor="let opt of effectiveVariantOptions()"
@@ -54,7 +54,19 @@ import {
             [style.border-left-color]="
               opt.variant.display_config?.color || '#94a3b8'
             "
+            role="radio"
+            tabindex="0"
+            [attr.aria-checked]="
+              selectedVariantId() === opt.variantId &&
+              selectedBillingPeriod() === opt.pricing.billing_period
+            "
+            [attr.aria-label]="
+              opt.variant.name + ', ' + opt.pricing.base_price + ' euros ' +
+              (opt.pricing.billing_period ? 'por ' + periodLabel(opt.pricing.billing_period) : '')
+            "
             (click)="selectVariant(opt.variantId, opt.pricing)"
+            (keydown.enter)="selectVariant(opt.variantId, opt.pricing); $event.preventDefault()"
+            (keydown.space)="selectVariant(opt.variantId, opt.pricing); $event.preventDefault()"
           >
             <div class="variant-option-header">
               <span class="variant-name">{{ opt.variant.name }}</span>
@@ -68,7 +80,8 @@ import {
               >
             </div>
             <div class="variant-price">
-              <span class="price-amount">{{ opt.pricing.base_price }}€</span>
+              <span class="price-amount" aria-hidden="true">{{ opt.pricing.base_price }}€</span>
+              <span class="sr-only">{{ opt.pricing.base_price }} euros</span>
               <span class="price-period" *ngIf="opt.pricing.billing_period">
                 / {{ periodLabel(opt.pricing.billing_period) }}
               </span>
@@ -79,11 +92,16 @@ import {
 
       <section class="professionals-section">
         <h2>{{ "service.availableWith" | transloco }}</h2>
-        <div class="professionals-grid">
+        <div class="professionals-grid" role="list">
           <div
             class="professional-item"
             *ngFor="let prof of professionalsForService()"
+            role="listitem"
+            tabindex="0"
+            [attr.aria-label]="'Reservar cita con ' + prof.display_name"
             (click)="bookWithProfessional(prof)"
+            (keydown.enter)="bookWithProfessional(prof); $event.preventDefault()"
+            (keydown.space)="bookWithProfessional(prof); $event.preventDefault()"
           >
             <div class="prof-avatar">
               <img
@@ -165,7 +183,7 @@ import {
       .service-title {
         font-size: var(--font-size-3xl);
         font-weight: var(--font-weight-bold);
-        color: var(--color-text-primary);
+        color: var(--color-text);
         margin: 0;
       }
 
@@ -179,7 +197,7 @@ import {
       .price {
         font-size: var(--font-size-2xl);
         font-weight: var(--font-weight-bold);
-        color: var(--color-secondary);
+        color: var(--color-primary);
       }
 
       .duration {
@@ -232,6 +250,11 @@ import {
         transform: translateY(-1px);
       }
 
+      .variant-option:focus-visible {
+        outline: 3px solid var(--color-primary);
+        outline-offset: 2px;
+      }
+
       .variant-option--selected {
         border-color: var(--color-primary);
         background: var(--color-surface-elevated, var(--color-surface));
@@ -247,7 +270,7 @@ import {
 
       .variant-name {
         font-weight: var(--font-weight-semibold);
-        color: var(--color-text-primary);
+        color: var(--color-text);
       }
 
       .variant-badge {
@@ -268,7 +291,7 @@ import {
       .price-amount {
         font-size: var(--font-size-xl);
         font-weight: var(--font-weight-bold);
-        color: var(--color-secondary);
+        color: var(--color-primary);
       }
 
       .price-period {
@@ -310,6 +333,11 @@ import {
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       }
 
+      .professional-item:focus-visible {
+        outline: 3px solid var(--color-primary);
+        outline-offset: 2px;
+      }
+
       .prof-avatar {
         width: 48px;
         height: 48px;
@@ -342,7 +370,7 @@ import {
 
       .prof-name {
         font-weight: var(--font-weight-medium);
-        color: var(--color-text-primary);
+        color: var(--color-text);
       }
 
       .book-link {
@@ -381,7 +409,7 @@ import {
       .btn-outline {
         background: transparent;
         border: 1px solid var(--color-border);
-        color: var(--color-text-primary);
+        color: var(--color-text);
       }
 
       .loading-state,
@@ -396,6 +424,21 @@ import {
 
       .error-state {
         color: var(--color-error);
+      }
+
+      /* Visually hidden but readable by screen readers — used to spell
+         out prices and statuses that the visual label is ambiguous
+         about (e.g. "30,50€" can be read as "30 euros 50" by TTS). */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
     `,
   ],

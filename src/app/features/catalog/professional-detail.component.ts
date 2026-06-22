@@ -130,7 +130,7 @@ import {
       }
 
       .initials {
-        font-size: var(--font-size-4xl);
+        font-size: 2.25rem;
         font-weight: var(--font-weight-bold);
         color: var(--color-primary-text);
       }
@@ -144,7 +144,7 @@ import {
       .professional-name {
         font-size: var(--font-size-3xl);
         font-weight: var(--font-weight-bold);
-        color: var(--color-text-primary);
+        color: var(--color-text);
         margin: 0;
       }
 
@@ -196,7 +196,7 @@ import {
 
       .service-name {
         font-weight: var(--font-weight-medium);
-        color: var(--color-text-primary);
+        color: var(--color-text);
       }
 
       .service-duration {

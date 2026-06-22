@@ -63,12 +63,15 @@ import {
       </div>
 
       <!-- Day selector tabs -->
-      <div class="day-tabs">
+      <div class="day-tabs" role="tablist" aria-label="Días disponibles">
         @for (day of weekDays(); track day.date; let i = $index) {
           @if (!day.isPast) {
             <button
               class="day-tab"
               type="button"
+              role="tab"
+              [attr.aria-selected]="selectedDayIndex() === i"
+              [attr.aria-label]="day.dayName + ' ' + day.dayNumber + (day.isToday ? ', hoy' : '')"
               [class.day-tab--active]="selectedDayIndex() === i"
               [class.day-tab--today]="day.isToday"
               [class.day-tab--no-slots]="getAvailableSlotsForDay(i).length === 0"
@@ -106,16 +109,19 @@ import {
             <p class="no-slots-hint">Prueba con otro día o revisa la semana siguiente →</p>
           </div>
         } @else {
-          <div class="slots-list">
+          <div class="slots-list" role="listbox" aria-label="Horarios disponibles">
             @for (slot of getAvailableSlotsForDay(selectedDayIndex()); track slot.id) {
               <button
                 class="slot-btn"
                 type="button"
+                role="option"
+                [attr.aria-selected]="selectedSlot()?.id === slot.id"
+                [attr.aria-label]="'Horario de las ' + slot.startTime + ' a las ' + slot.endTime"
                 [class.slot-btn--selected]="selectedSlot()?.id === slot.id"
                 (click)="onSlotSelect(slot)"
               >
-                <span class="slot-time-text">{{ slot.startTime }}</span>
-                <span class="slot-time-end">– {{ slot.endTime }}</span>
+                <span class="slot-time-text" aria-hidden="true">{{ slot.startTime }}</span>
+                <span class="slot-time-end" aria-hidden="true">– {{ slot.endTime }}</span>
               </button>
             }
           </div>
@@ -161,7 +167,7 @@ import {
         margin: 0 0 0.25rem;
         font-size: var(--font-size-lg);
         font-weight: var(--font-weight-bold);
-        color: var(--color-text-primary);
+        color: var(--color-text);
       }
       .calendar-subtitle {
         margin: 0;
@@ -205,7 +211,7 @@ import {
 
       .week-label {
         font-weight: var(--font-weight-bold);
-        color: var(--color-text-primary);
+        color: var(--color-text);
         font-size: var(--font-size-lg);
         letter-spacing: 0.01em;
         text-align: center;
@@ -271,7 +277,7 @@ import {
       .day-tab-number {
         font-size: 1.5rem;
         font-weight: var(--font-weight-bold);
-        color: var(--color-text-primary);
+        color: var(--color-text);
         line-height: 1;
       }
       .day-tab-number--today {

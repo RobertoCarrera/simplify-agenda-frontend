@@ -50,7 +50,7 @@ import { TranslocoModule } from "@jsverse/transloco";
         border-radius: var(--radius-md);
         cursor: pointer;
         font-weight: var(--font-weight-medium);
-        color: var(--color-text-primary);
+        color: var(--color-text);
         transition: all var(--transition-fast);
       }
 
@@ -70,7 +70,7 @@ import { TranslocoModule } from "@jsverse/transloco";
       .week-range {
         font-size: var(--font-size-lg);
         font-weight: var(--font-weight-semibold);
-        color: var(--color-text-primary);
+        color: var(--color-text);
       }
 
       .today-btn {

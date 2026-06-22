@@ -64,6 +64,21 @@ export const routes: Routes = [
         title: "Contratar Servicio | Simplifica CRM",
       },
 
+      // ── Cart (catalog mode, shop view) ──────────────────────────
+      // Shows the contents of the CartService, lets the customer adjust
+      // quantities or remove lines, and submits a single cart_request
+      // lead that captures the whole bundle. This is the equivalent of
+      // the booking wizard for shop mode — no slot, no professional, just
+      // a contact form and a list of products.
+      {
+        path: "cart",
+        loadComponent: () =>
+          import("./features/cart/cart-screen.component").then(
+            (m) => m.CartScreenComponent,
+          ),
+        title: "Carrito | Simplifica CRM",
+      },
+
       // ── Profesionales (booking mode only) ───────────────────────
       {
         path: "profesionales",

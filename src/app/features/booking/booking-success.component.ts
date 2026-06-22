@@ -7,9 +7,9 @@ import { TranslocoModule } from "@jsverse/transloco";
   standalone: true,
   imports: [RouterLink, TranslocoModule],
   template: `
-    <div class="booking-success">
-      <div class="success-card">
-        <div class="success-icon">✓</div>
+    <div class="booking-success" role="main">
+      <div class="success-card" role="status" aria-live="assertive">
+        <div class="success-icon" aria-hidden="true">✓</div>
         <h1>{{ "booking.success.title" | transloco }}</h1>
         <p>{{ "booking.success.message" | transloco }}</p>
 
@@ -18,7 +18,7 @@ import { TranslocoModule } from "@jsverse/transloco";
             <span class="label"
               >{{ "booking.success.bookingId" | transloco }}:</span
             >
-            <span class="value">{{ bookingId() }}</span>
+            <span class="value" aria-label="Código de reserva: {{ bookingId() }}">{{ bookingId() }}</span>
           </div>
         </div>
 
@@ -48,13 +48,13 @@ import { TranslocoModule } from "@jsverse/transloco";
       }
 
       .success-card {
-        background: var(--color-background);
+        background: var(--color-bg);
         border-radius: var(--radius-xl);
         padding: var(--space-8);
         text-align: center;
         max-width: 400px;
         width: 100%;
-        box-shadow: var(--shadow-lg);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
       }
 
       .success-icon {

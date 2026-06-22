@@ -117,7 +117,7 @@ import {
 
           &:hover {
             background: var(--color-surface);
-            color: var(--color-text-primary);
+            color: var(--color-text);
           }
 
           &.active {
@@ -181,7 +181,7 @@ import {
           font-size: var(--font-size-lg);
           font-weight: var(--font-weight-semibold);
           margin: 0 0 var(--space-2) 0;
-          color: var(--color-text-primary);
+          color: var(--color-text);
         }
 
         .title {
@@ -214,7 +214,7 @@ import {
       .btn-outline {
         background: transparent;
         border: 1px solid var(--color-border);
-        color: var(--color-text-primary);
+        color: var(--color-text);
 
         &:hover {
           border-color: var(--color-primary);

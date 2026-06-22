@@ -11,6 +11,7 @@ import {
 } from "../../services/booking-public.service";
 import { applyBrandingColors } from "../../shared/branding.utils";
 import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
+import { EmptyStateComponent } from "../../shared/ui/empty-state.component";
 
 /**
  * Catalog-only view for companies whose portal_features.show_catalog = true
@@ -30,7 +31,7 @@ import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
 @Component({
   selector: "app-catalog-only",
   standalone: true,
-  imports: [RouterLink, TranslocoModule, CommonModule, StripHtmlPipe],
+  imports: [RouterLink, TranslocoModule, CommonModule, StripHtmlPipe, EmptyStateComponent],
   template: `
     @if (loading()) {
       <div class="catalog-loading">
@@ -70,13 +71,20 @@ import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
           {{ services().length }} servicio{{ services().length !== 1 ? 's' : '' }} disponible{{ services().length !== 1 ? 's' : '' }}
         </p>
 
-        <div class="services-grid">
-          @for (svc of services(); track svc.id) {
-            <div class="service-card">
-              <div class="service-card-top">
-                <span class="service-dot" [style.background]="svc.color || '#94a3b8'"></span>
-                <div class="service-card-info">
-                  <h3 class="service-name">{{ svc.name }}</h3>
+        @if (services().length === 0) {
+          <app-empty-state
+            variant="shop"
+            title="Aún no hay servicios disponibles."
+            [description]="company()?.name ? 'Vuelve pronto a ver el catálogo de ' + company()!.name + '.' : undefined"
+          />
+        } @else {
+          <div class="services-grid">
+            @for (svc of services(); track svc.id) {
+              <div class="service-card">
+                <div class="service-card-top">
+                  <span class="service-dot" [style.background]="svc.color || '#94a3b8'"></span>
+                  <div class="service-card-info">
+                    <h3 class="service-name">{{ svc.name }}</h3>
                   @if (svc.description) {
                     <p class="service-desc">{{ svc.description | stripHtml }}</p>
                   }
@@ -117,10 +125,7 @@ import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
             </div>
           }
         </div>
-
-        <p class="footer-cta" *ngIf="services().length === 0">
-          Próximamente publicaremos nuevos servicios.
-        </p>
+        }
       </div>
     }
   `,
@@ -348,13 +353,6 @@ import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
         color: var(--color-primary-text);
       }
       .btn-contratar:hover { background: var(--color-primary-hover); }
-
-      .footer-cta {
-        text-align: center;
-        margin-top: 3rem;
-        color: var(--color-text-secondary);
-        font-size: 0.95rem;
-      }
 
       /* ── Mobile ── */
       @media (max-width: 640px) {
