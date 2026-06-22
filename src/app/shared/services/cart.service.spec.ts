@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { ɵEffectScheduler as EffectScheduler } from '@angular/core';
 import { CartService, CartItem } from './cart.service';
 import { Product } from '../../services/booking-public.service';
 
@@ -142,6 +143,10 @@ describe('CartService', () => {
   describe('persistence', () => {
     it('persists to localStorage on every change', () => {
       cart.add(mockProduct());
+      // Angular's effect() runs through EffectScheduler, NOT
+      // synchronously and NOT via queueMicrotask. To make the test
+      // deterministic we flush the scheduler directly.
+      TestBed.inject(EffectScheduler).flush();
       const raw = localStorage.getItem(STORAGE_KEY);
       expect(raw).toBeTruthy();
       const parsed = JSON.parse(raw!);
@@ -161,6 +166,12 @@ describe('CartService', () => {
     });
 
     it('drops malformed items on load (defensive)', () => {
+      // Force a fresh injector + service instance so the constructor
+      // reads the malformed localStorage payload. Without
+      // resetTestingModule(), TestBed.inject returns the same cart
+      // already created in beforeEach, whose items signal was already
+      // initialized from the cleared localStorage.
+      TestBed.resetTestingModule();
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify([
@@ -172,6 +183,7 @@ describe('CartService', () => {
           { productId: 'negative', name: 'Neg', quantity: -1 }, // invalid quantity
         ]),
       );
+      TestBed.configureTestingModule({});
       const cart2 = TestBed.inject(CartService);
       const items = cart2.snapshot().items;
       expect(items.length).toBe(1);
@@ -201,6 +213,44 @@ describe('CartService', () => {
       // Bump an existing product — should still work.
       cart.add(mockProduct({ id: 'p-0' }));
       expect(cart.quantityOf('p-0')).toBe(2);
+    });
+  });
+
+  describe('query helpers', () => {
+    it('quantityOf returns 0 for a product not in the cart', () => {
+      expect(cart.quantityOf('does-not-exist')).toBe(0);
+    });
+
+    it('has returns false for a product not in the cart', () => {
+      expect(cart.has('does-not-exist')).toBe(false);
+    });
+
+    it('distinctCount matches the number of lines, not the unit count', () => {
+      // 3 lines with quantities 1, 2, 3 = 6 units, 3 distinct lines.
+      cart.add(mockProduct({ id: 'a', price: 10 }));
+      cart.add(mockProduct({ id: 'a', price: 10 })); // bumps to 2
+      cart.add(mockProduct({ id: 'b', price: 5 }));
+      cart.add(mockProduct({ id: 'b', price: 5 })); // bumps to 2
+      cart.add(mockProduct({ id: 'b', price: 5 })); // bumps to 3
+      cart.add(mockProduct({ id: 'c', price: 1 }));
+      expect(cart.distinctCount()).toBe(3);
+      expect(cart.itemCount()).toBe(6);
+    });
+
+    it('snapshot reflects the current state, not a frozen copy', () => {
+      cart.add(mockProduct({ id: 'a', price: 10 }));
+      const first = cart.snapshot();
+      expect(first.items.length).toBe(1);
+      expect(first.items[0].quantity).toBe(1);
+      // Mutate the cart after the snapshot.
+      cart.add(mockProduct({ id: 'a', price: 10 }));
+      const second = cart.snapshot();
+      // The second snapshot reflects the post-bump quantity. Note:
+      // signal `update()` creates a new array, so `first.items` holds
+      // a reference to the OLD array and is NOT retroactively mutated
+      // — the first snapshot is a point-in-time view of the cart.
+      expect(second.items[0].quantity).toBe(2);
+      expect(first.items[0].quantity).toBe(1);
     });
   });
 });
