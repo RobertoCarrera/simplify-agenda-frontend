@@ -1,8 +1,9 @@
 import { Component, OnInit, inject, signal, computed } from "@angular/core";
-import { ActivatedRoute, RouterLink } from "@angular/router";
+import { ActivatedRoute } from "@angular/router";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { TranslocoModule } from "@jsverse/transloco";
+import { EmptyStateComponent } from "../../shared/ui/empty-state.component";
 import {
   BookingPublicService,
   Product,
@@ -27,7 +28,7 @@ import { CartService } from "../../shared/services/cart.service";
 @Component({
   selector: "app-shop-only",
   standalone: true,
-  imports: [RouterLink, CommonModule, FormsModule, TranslocoModule],
+  imports: [CommonModule, FormsModule, TranslocoModule, EmptyStateComponent],
   template: `
     @if (loading()) {
       <div class="shop-loading">
@@ -67,28 +68,36 @@ import { CartService } from "../../shared/services/cart.service";
         @if (products().length > 0) {
           <div class="filters-bar">
             <div class="search-input">
-              <i class="fas fa-search"></i>
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
               <input
                 type="search"
-                [(ngModel)]="searchQuery"
+                [ngModel]="searchQuery()"
+                (ngModelChange)="searchQuery.set($event)"
                 placeholder="Buscar productos por nombre o descripción…"
                 aria-label="Buscar productos"
               />
-              @if (searchQuery) {
+              @if (searchQuery()) {
                 <button
                   type="button"
                   class="search-clear"
-                  (click)="searchQuery = ''"
+                  (click)="searchQuery.set('')"
                   aria-label="Limpiar búsqueda"
                 >
-                  <i class="fas fa-times"></i>
+                  <svg class="clear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
                 </button>
               }
             </div>
             @if (availableCategories().length > 0) {
               <select
                 class="category-select"
-                [(ngModel)]="selectedCategory"
+                [ngModel]="selectedCategory()"
+                (ngModelChange)="selectedCategory.set($event)"
                 aria-label="Filtrar por categoría"
               >
                 <option value="">Todas las categorías</option>
@@ -97,13 +106,17 @@ import { CartService } from "../../shared/services/cart.service";
                 }
               </select>
             }
-            @if (searchQuery || selectedCategory) {
+            @if (searchQuery() || selectedCategory()) {
               <button
                 type="button"
                 class="clear-filters"
                 (click)="clearFilters()"
               >
-                <i class="fas fa-undo"></i> Limpiar filtros
+                <svg class="undo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="1 4 1 10 7 10"></polyline>
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+                Limpiar filtros
               </button>
             }
           </div>
@@ -118,18 +131,21 @@ import { CartService } from "../../shared/services/cart.service";
         </p>
 
         @if (products().length === 0) {
-          <div class="empty-state">
-            <div class="empty-icon">🛍️</div>
-            <p>Próximamente publicaremos nuevos productos.</p>
-          </div>
+          <app-empty-state
+            variant="shop"
+            title="Próximamente publicaremos nuevos productos."
+            [description]="companyName() ? 'Vuelve pronto a ver el catálogo de ' + companyName() + '.' : undefined"
+          />
         } @else if (filteredProducts().length === 0) {
-          <div class="empty-state">
-            <div class="empty-icon">🔍</div>
-            <p>No hay productos que coincidan con tu búsqueda.</p>
+          <app-empty-state
+            variant="generic"
+            title="No hay productos que coincidan con tu búsqueda."
+            description="Prueba a quitar los filtros o cambiar la palabra clave."
+          >
             <button type="button" class="link-btn" (click)="clearFilters()">
               Limpiar filtros
             </button>
-          </div>
+          </app-empty-state>
         } @else {
           <div class="products-grid">
             @for (product of filteredProducts(); track product.id) {
@@ -165,7 +181,9 @@ import { CartService } from "../../shared/services/cart.service";
                         (click)="decreaseQty(product)"
                         aria-label="Quitar uno del carrito"
                       >
-                        <i class="fas fa-minus"></i>
+                        <svg class="qty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                          <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
                       </button>
                       <span class="qty-value">{{ cart.quantityOf(product.id) }}</span>
                       <button
@@ -174,12 +192,20 @@ import { CartService } from "../../shared/services/cart.service";
                         (click)="addToCart(product)"
                         aria-label="Añadir uno más al carrito"
                       >
-                        <i class="fas fa-plus"></i>
+                        <svg class="qty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                          <line x1="12" y1="5" x2="12" y2="19"></line>
+                          <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
                       </button>
                     </div>
                   } @else {
                     <button type="button" class="btn-add" (click)="addToCart(product)">
-                      <i class="fas fa-cart-plus"></i> Añadir al carrito
+                      <svg class="add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"></path>
+                      </svg>
+                      Añadir al carrito
                     </button>
                   }
                 </div>
@@ -293,13 +319,14 @@ import { CartService } from "../../shared/services/cart.service";
         flex: 1 1 220px;
         min-width: 200px;
       }
-      .search-input i.fa-search {
+      .search-input .search-icon {
         position: absolute;
         left: 0.75rem;
         top: 50%;
         transform: translateY(-50%);
         color: var(--color-text-secondary);
-        font-size: 0.875rem;
+        width: 0.875rem;
+        height: 0.875rem;
         pointer-events: none;
       }
       .search-input input {
@@ -329,9 +356,12 @@ import { CartService } from "../../shared/services/cart.service";
         padding: 0.25rem 0.5rem;
         color: var(--color-text-secondary);
         cursor: pointer;
-        font-size: 0.75rem;
         border-radius: 0.25rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
+      .search-clear .clear-icon { width: 0.75rem; height: 0.75rem; display: block; }
       .search-clear:hover {
         color: var(--color-text);
         background: var(--color-surface-hover);
@@ -354,7 +384,7 @@ import { CartService } from "../../shared/services/cart.service";
       .clear-filters {
         display: inline-flex;
         align-items: center;
-        gap: 0.25rem;
+        gap: 0.375rem;
         padding: 0.5rem 0.75rem;
         background: transparent;
         color: var(--color-primary, #10B981);
@@ -365,6 +395,7 @@ import { CartService } from "../../shared/services/cart.service";
         cursor: pointer;
         font-family: inherit;
       }
+      .clear-filters .undo-icon { width: 0.875rem; height: 0.875rem; display: block; }
       .clear-filters:hover {
         background: var(--color-primary, #10B981);
         color: white;
@@ -398,13 +429,6 @@ import { CartService } from "../../shared/services/cart.service";
         background: var(--color-surface-hover);
         color: var(--color-text-secondary);
       }
-
-      .empty-state {
-        text-align: center;
-        padding: 3rem 1rem;
-        color: var(--color-text-secondary);
-      }
-      .empty-icon { font-size: 2.5rem; margin-bottom: 0.5rem; opacity: 0.5; }
 
       .products-grid {
         display: grid;
@@ -484,7 +508,7 @@ import { CartService } from "../../shared/services/cart.service";
         font-family: inherit;
       }
       .btn-add:hover { filter: brightness(1.1); }
-      .btn-add i { font-size: 0.8125rem; }
+      .add-icon { width: 0.9375rem; height: 0.9375rem; display: block; flex-shrink: 0; }
 
       /* ── Quantity stepper (shown once the product is in the cart) ── */
       .qty-stepper {
@@ -507,8 +531,12 @@ import { CartService } from "../../shared/services/cart.service";
         font-family: inherit;
         transition: background 150ms ease;
         flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
       .qty-btn:hover { background: rgba(16, 185, 129, 0.1); }
+      .qty-icon { width: 0.875rem; height: 0.875rem; display: block; }
       .qty-value {
         font-size: 0.9375rem;
         font-weight: 700;
@@ -539,9 +567,13 @@ export class ShopOnlyComponent implements OnInit {
   companyName = signal<string>("");
   logoUrl = signal<string | null>(null);
 
-  // Filter state (two-way bound from the template).
-  searchQuery = "";
-  selectedCategory = "";
+  // Filter state (two-way bound from the template via ngModel).
+  // Both are signals so the `filteredProducts` computed re-evaluates
+  // when the user types or picks a category. A previous version had
+  // these as plain strings, which meant the `computed` never
+  // re-ran on input — the filter was visually broken.
+  searchQuery = signal<string>("");
+  selectedCategory = signal<string>("");
 
   /**
    * Unique categories present in the loaded products, sorted alphabetically.
@@ -566,8 +598,8 @@ export class ShopOnlyComponent implements OnInit {
    * Re-evaluates whenever products, searchQuery, or selectedCategory change.
    */
   filteredProducts = computed<Product[]>(() => {
-    const query = this.searchQuery.trim().toLowerCase();
-    const cat = this.selectedCategory;
+    const query = this.searchQuery().trim().toLowerCase();
+    const cat = this.selectedCategory();
     return this.products().filter((p) => {
       if (cat && p.category_id !== cat) return false;
       if (query) {
@@ -579,8 +611,8 @@ export class ShopOnlyComponent implements OnInit {
   });
 
   clearFilters() {
-    this.searchQuery = "";
-    this.selectedCategory = "";
+    this.searchQuery.set("");
+    this.selectedCategory.set("");
   }
 
   ngOnInit() {

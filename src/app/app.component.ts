@@ -46,6 +46,12 @@ export class AppComponent implements OnInit {
   companyName = "Simplifica";
   logoUrl: string | undefined;
 
+  // Inject TranslocoService in the field initializer (injection context).
+  // Calling `inject()` inside `ngOnInit()` is NOT an injection context and
+  // throws NG0203 — which silently broke language initialisation and was
+  // hiding behind the localStorage try/catch in earlier sessions.
+  private transloco = inject(TranslocoService);
+
   ngOnInit() {
     // Detect and react to browser dark mode preference — applies class to <html>
     const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
@@ -55,12 +61,11 @@ export class AppComponent implements OnInit {
     });
 
     // Language
-    const transloco = inject(TranslocoService);
     const available = ["es", "ca"];
     const browserLang = (navigator.languages?.[0] ?? navigator.language ?? "es")
       .slice(0, 2)
       .toLowerCase();
-    transloco.setActiveLang(available.includes(browserLang) ? browserLang : "es");
+    this.transloco.setActiveLang(available.includes(browserLang) ? browserLang : "es");
 
     // Hydrate header branding from the cached company, if any.
     // The company resolver (in app.routes.ts) caches the active company under
