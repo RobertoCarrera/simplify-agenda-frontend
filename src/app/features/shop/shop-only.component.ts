@@ -11,10 +11,6 @@ import {
 import { applyBrandingColors } from "../../shared/branding.utils";
 import { CartService } from "../../shared/services/cart.service";
 import { FlyToCartService } from "../../shared/services/fly-to-cart.service";
-import {
-  applySavedOrder,
-  OrderPreferenceService,
-} from "../../shared/services/order-preference.service";
 
 /**
  * Shop-only view for companies whose portal_features.show_shop = true.
@@ -150,42 +146,11 @@ import {
             <button type="button" class="link-btn" (click)="clearFilters()">
               Limpiar filtros
             </button>
-            @if (hasCustomShopOrder()) {
-              <button type="button" class="link-btn" (click)="resetOrder($event)">
-                Restablecer orden
-              </button>
-            }
           </app-empty-state>
         } @else {
           <div class="products-grid">
             @for (product of filteredProducts(); track product.id) {
-              <div
-                class="product-card"
-                [class.is-dragging]="isDragging(product.id)"
-                [class.is-drop-target-before]="isDropTarget(product.id) && dropIndicatorSide() === 'before'"
-                [class.is-drop-target-after]="isDropTarget(product.id) && dropIndicatorSide() === 'after'"
-                draggable="true"
-                (dragstart)="onDragStart($event, product.id)"
-                (dragover)="onDragOver($event, product.id)"
-                (drop)="onDrop($event, product.id)"
-                (dragend)="onDragEnd()"
-              >
-                <button
-                  type="button"
-                  class="drag-handle"
-                  aria-label="Reordenar este producto"
-                  title="Arrastra para reordenar"
-                  tabindex="-1"
-                >
-                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <circle cx="9" cy="6" r="1.5"></circle>
-                    <circle cx="15" cy="6" r="1.5"></circle>
-                    <circle cx="9" cy="12" r="1.5"></circle>
-                    <circle cx="15" cy="12" r="1.5"></circle>
-                    <circle cx="9" cy="18" r="1.5"></circle>
-                    <circle cx="15" cy="18" r="1.5"></circle>
-                  </svg>
-                </button>
+              <div class="product-card">
                 <div class="product-card-top">
                   <h3 class="product-name">{{ product.name }}</h3>
                   @if (product.price != null) {
@@ -589,64 +554,6 @@ import {
         .product-card { padding: 1rem; }
       }
 
-      /* ── Drag-and-drop reordering ──────────────────────────────── */
-      .product-card { position: relative; }
-
-      .drag-handle {
-        position: absolute;
-        top: 0.5rem;
-        left: 0.5rem;
-        width: 1.75rem;
-        height: 1.75rem;
-        padding: 0.25rem;
-        background: transparent;
-        border: none;
-        border-radius: 0.375rem;
-        color: var(--color-text-secondary);
-        cursor: grab;
-        opacity: 0;
-        transition: opacity 150ms ease, background 150ms ease, color 150ms ease;
-        z-index: 1;
-      }
-      .drag-handle svg { width: 100%; height: 100%; display: block; }
-      .product-card:hover .drag-handle,
-      .drag-handle:focus-visible { opacity: 0.65; }
-      .drag-handle:hover {
-        opacity: 1;
-        background: var(--color-surface-hover);
-        color: var(--color-text);
-      }
-      .drag-handle:active { cursor: grabbing; }
-
-      .product-card.is-dragging {
-        opacity: 0.5;
-        transform: rotate(-1deg);
-      }
-
-      .product-card.is-drop-target-before::before {
-        content: "";
-        position: absolute;
-        top: -0.4rem;
-        left: 0;
-        right: 0;
-        height: 3px;
-        border-radius: 2px;
-        background: var(--color-primary, #10B981);
-        box-shadow: 0 0 8px var(--color-primary, #10B981);
-        pointer-events: none;
-      }
-      .product-card.is-drop-target-after::after {
-        content: "";
-        position: absolute;
-        bottom: -0.4rem;
-        left: 0;
-        right: 0;
-        height: 3px;
-        border-radius: 2px;
-        background: var(--color-primary, #10B981);
-        box-shadow: 0 0 8px var(--color-primary, #10B981);
-        pointer-events: none;
-      }
     `,
   ],
 })
@@ -655,7 +562,6 @@ export class ShopOnlyComponent implements OnInit {
   private bookingService = inject(BookingPublicService);
   cart = inject(CartService);
   flyToCart = inject(FlyToCartService);
-  private orderPref = inject(OrderPreferenceService);
 
   loading = signal(true);
   error = signal<string | null>(null);
@@ -697,12 +603,12 @@ export class ShopOnlyComponent implements OnInit {
   /**
    * Filter then sort by the customer's saved order. The drag-and-drop
    * reordering applies AFTER the filter so the user's saved order
-   * only affects what they're actually seeing.
-   */
+    * only affects what they're actually seeing.
+    */
   filteredProducts = computed<Product[]>(() => {
     const query = this.searchQuery().trim().toLowerCase();
     const cat = this.selectedCategory();
-    const filtered = this.products().filter((p) => {
+    return this.products().filter((p) => {
       if (cat && p.category_id !== cat) return false;
       if (query) {
         const haystack = `${p.name} ${p.description ?? ""} ${p.brand ?? ""} ${p.model ?? ""}`.toLowerCase();
@@ -710,22 +616,12 @@ export class ShopOnlyComponent implements OnInit {
       }
       return true;
     });
-    return applySavedOrder(filtered, this.shopOrder());
   });
 
-  /**
-   * Saved custom order for the shop section, loaded from
-   * localStorage on init. Null = use the backend's natural order.
-   */
-  private shopOrder = signal<string[] | null>(null);
-  /** True when the user has reordered the products at least once. */
-  hasCustomShopOrder = computed(() => this.shopOrder() !== null);
-  /** Id of the product currently being dragged. */
-  private draggedId = signal<string>("");
-  /** Id of the hovered card during a drag. */
-  private dropTargetId = signal<string>("");
-  /** Which side of the target the drop will land on. */
-  private dropSide = signal<"before" | "after">("after");
+  // No more shopOrder / hasCustomShopOrder / drag handlers here.
+  // The display order is set by the owner in the CRM. The BFF returns
+  // products already sorted by display_order ASC, so filteredProducts
+  // just passes them through.
 
   clearFilters() {
     this.searchQuery.set("");
@@ -740,9 +636,6 @@ export class ShopOnlyComponent implements OnInit {
       this.loading.set(false);
       return;
     }
-    // Load the customer's saved order for the shop section before
-    // the products land, so the computed can apply it immediately.
-    this.shopOrder.set(this.orderPref.getOrder(slug, "shop"));
     this.bookingService.getServices(slug).subscribe({
       next: (res) => {
         applyBrandingColors(res.company?.primary_color, res.company?.secondary_color);
@@ -782,96 +675,4 @@ export class ShopOnlyComponent implements OnInit {
     return (product.stock_quantity ?? 0) <= 5;
   }
 
-  // ─── Drag-and-drop reordering ──────────────────────────────────
-  // The customer can drag products to reorder them within the shop.
-  // Order persists to localStorage via OrderPreferenceService.
-  isDragging(id: string): boolean {
-    return this.draggedId() === id;
-  }
-
-  isDropTarget(id: string): boolean {
-    return this.dropTargetId() === id;
-  }
-
-  dropIndicatorSide(): "before" | "after" {
-    return this.dropSide();
-  }
-
-  onDragStart(event: DragEvent, id: string) {
-    this.draggedId.set(id);
-    if (event.dataTransfer) {
-      event.dataTransfer.setData("text/plain", id);
-      event.dataTransfer.effectAllowed = "move";
-    }
-  }
-
-  onDragOver(event: DragEvent, hoveredId: string) {
-    if (!this.draggedId()) return;
-    event.preventDefault();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = "move";
-    }
-    if (this.dropTargetId() !== hoveredId) {
-      this.dropTargetId.set(hoveredId);
-    }
-    const target = event.currentTarget;
-    if (target instanceof HTMLElement) {
-      const rect = target.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-      this.dropSide.set(event.clientY < midpoint ? "before" : "after");
-    }
-  }
-
-  onDrop(event: DragEvent, targetId: string) {
-    if (!this.draggedId()) return;
-    event.preventDefault();
-    const draggedId = this.draggedId();
-    if (draggedId === targetId) {
-      this.resetDragState();
-      return;
-    }
-    this.reorder(draggedId, targetId);
-    this.resetDragState();
-  }
-
-  onDragEnd() {
-    this.resetDragState();
-  }
-
-  private reorder(draggedId: string, targetId: string) {
-    const items = this.filteredProducts();
-    const currentOrder = this.shopOrder() ?? items.map((p) => p.id);
-    const without = currentOrder.filter((id) => id !== draggedId);
-    const targetIdx = without.indexOf(targetId);
-    if (targetIdx < 0) {
-      without.push(draggedId);
-    } else {
-      const insertAt = this.dropSide() === "before" ? targetIdx : targetIdx + 1;
-      without.splice(insertAt, 0, draggedId);
-    }
-    this.shopOrder.set(without);
-    const slug = this.route.parent?.snapshot.paramMap.get("slug")
-      ?? this.route.snapshot.paramMap.get("slug")
-      ?? "";
-    if (slug) {
-      this.orderPref.setOrder(slug, "shop", without);
-    }
-  }
-
-  private resetDragState() {
-    this.draggedId.set("");
-    this.dropTargetId.set("");
-    this.dropSide.set("after");
-  }
-
-  resetOrder(event: Event) {
-    event.preventDefault();
-    event.stopPropagation();
-    const slug = this.route.parent?.snapshot.paramMap.get("slug")
-      ?? this.route.snapshot.paramMap.get("slug")
-      ?? "";
-    if (!slug) return;
-    this.orderPref.reset(slug, "shop");
-    this.shopOrder.set(null);
-  }
 }

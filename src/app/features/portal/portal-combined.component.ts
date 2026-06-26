@@ -23,10 +23,6 @@ import { applyBrandingColors } from "../../shared/branding.utils";
 import { StripHtmlPipe } from "../../shared/pipes/strip-html.pipe";
 import { CartService } from "../../shared/services/cart.service";
 import { FlyToCartService } from "../../shared/services/fly-to-cart.service";
-import {
-  applySavedOrder,
-  OrderPreferenceService,
-} from "../../shared/services/order-preference.service";
 
 /**
  * Tabbed portal shell. When a company has 2+ portal modes active
@@ -172,53 +168,11 @@ import {
                 </svg>
                 Reservar cita
               </h2>
-              <p class="section-subtitle">
-                <span>Elige un servicio y un horario disponible.</span>
-                @if (hasCustomBookingOrder()) {
-                  <button
-                    type="button"
-                    class="reset-order-btn"
-                    (click)="resetOrder('booking', $event)"
-                    title="Volver al orden por defecto"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <polyline points="1 4 1 10 7 10"></polyline>
-                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                    </svg>
-                    Restablecer orden
-                  </button>
-                }
-              </p>
+              <p class="section-subtitle">Elige un servicio y un horario disponible.</p>
               @if (bookingVisible()) {
                 <div class="services-grid">
                   @for (svc of bookableServices(); track svc.id) {
-                    <div
-                      class="service-card"
-                      [class.is-dragging]="isDragging(svc.id)"
-                      [class.is-drop-target-before]="isDropTarget(svc.id) && dropIndicatorSide() === 'before'"
-                      [class.is-drop-target-after]="isDropTarget(svc.id) && dropIndicatorSide() === 'after'"
-                      draggable="true"
-                      (dragstart)="onDragStart($event, svc.id)"
-                      (dragover)="onDragOver($event, svc.id)"
-                      (drop)="onDrop($event, svc.id)"
-                      (dragend)="onDragEnd()"
-                    >
-                      <button
-                        type="button"
-                        class="drag-handle"
-                        aria-label="Reordenar este servicio"
-                        title="Arrastra para reordenar"
-                        tabindex="-1"
-                      >
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                          <circle cx="9" cy="6" r="1.5"></circle>
-                          <circle cx="15" cy="6" r="1.5"></circle>
-                          <circle cx="9" cy="12" r="1.5"></circle>
-                          <circle cx="15" cy="12" r="1.5"></circle>
-                          <circle cx="9" cy="18" r="1.5"></circle>
-                          <circle cx="15" cy="18" r="1.5"></circle>
-                        </svg>
-                      </button>
+                    <div class="service-card">
                       <div class="service-card-top">
                         <span class="service-dot" [style.background]="svc.color || '#94a3b8'"></span>
                         <div class="service-card-info">
@@ -264,53 +218,11 @@ import {
                 </svg>
                 Servicios y planes
               </h2>
-              <p class="section-subtitle">
-                <span>Contrata un servicio o un plan sin elegir horario.</span>
-                @if (hasCustomCatalogOrder()) {
-                  <button
-                    type="button"
-                    class="reset-order-btn"
-                    (click)="resetOrder('catalog', $event)"
-                    title="Volver al orden por defecto"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <polyline points="1 4 1 10 7 10"></polyline>
-                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                    </svg>
-                    Restablecer orden
-                  </button>
-                }
-              </p>
+              <p class="section-subtitle">Contrata un servicio o un plan sin elegir horario.</p>
               @if (catalogVisible()) {
                 <div class="services-grid">
                   @for (svc of catalogServices(); track svc.id) {
-                    <div
-                      class="service-card"
-                      [class.is-dragging]="isDragging(svc.id)"
-                      [class.is-drop-target-before]="isDropTarget(svc.id) && dropIndicatorSide() === 'before'"
-                      [class.is-drop-target-after]="isDropTarget(svc.id) && dropIndicatorSide() === 'after'"
-                      draggable="true"
-                      (dragstart)="onDragStart($event, svc.id)"
-                      (dragover)="onDragOver($event, svc.id)"
-                      (drop)="onDrop($event, svc.id)"
-                      (dragend)="onDragEnd()"
-                    >
-                      <button
-                        type="button"
-                        class="drag-handle"
-                        aria-label="Reordenar este servicio"
-                        title="Arrastra para reordenar"
-                        tabindex="-1"
-                      >
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                          <circle cx="9" cy="6" r="1.5"></circle>
-                          <circle cx="15" cy="6" r="1.5"></circle>
-                          <circle cx="9" cy="12" r="1.5"></circle>
-                          <circle cx="15" cy="12" r="1.5"></circle>
-                          <circle cx="9" cy="18" r="1.5"></circle>
-                          <circle cx="15" cy="18" r="1.5"></circle>
-                        </svg>
-                      </button>
+                    <div class="service-card">
                       <div class="service-card-top">
                         <span class="service-dot" [style.background]="svc.color || '#94a3b8'"></span>
                         <div class="service-card-info">
@@ -375,53 +287,11 @@ import {
                 </svg>
                 Productos
               </h2>
-              <p class="section-subtitle">
-                <span>Explora nuestros productos.</span>
-                @if (hasCustomShopOrder()) {
-                  <button
-                    type="button"
-                    class="reset-order-btn"
-                    (click)="resetOrder('shop', $event)"
-                    title="Volver al orden por defecto"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <polyline points="1 4 1 10 7 10"></polyline>
-                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                    </svg>
-                    Restablecer orden
-                  </button>
-                }
-              </p>
+              <p class="section-subtitle">Explora nuestros productos.</p>
               @if (shopVisible()) {
                 <div class="products-grid">
                   @for (product of productsForView(); track product.id) {
-                    <div
-                      class="product-card"
-                      [class.is-dragging]="isDragging(product.id)"
-                      [class.is-drop-target-before]="isDropTarget(product.id) && dropIndicatorSide() === 'before'"
-                      [class.is-drop-target-after]="isDropTarget(product.id) && dropIndicatorSide() === 'after'"
-                      draggable="true"
-                      (dragstart)="onDragStart($event, product.id)"
-                      (dragover)="onDragOver($event, product.id)"
-                      (drop)="onDrop($event, product.id)"
-                      (dragend)="onDragEnd()"
-                    >
-                      <button
-                        type="button"
-                        class="drag-handle"
-                        aria-label="Reordenar este producto"
-                        title="Arrastra para reordenar"
-                        tabindex="-1"
-                      >
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                          <circle cx="9" cy="6" r="1.5"></circle>
-                          <circle cx="15" cy="6" r="1.5"></circle>
-                          <circle cx="9" cy="12" r="1.5"></circle>
-                          <circle cx="15" cy="12" r="1.5"></circle>
-                          <circle cx="9" cy="18" r="1.5"></circle>
-                          <circle cx="15" cy="18" r="1.5"></circle>
-                        </svg>
-                      </button>
+                    <div class="product-card">
                       <div class="product-card-top">
                         <h3 class="product-name">{{ product.name }}</h3>
                         @if (product.price != null) {
@@ -789,7 +659,6 @@ export class PortalCombinedComponent implements OnInit {
   private bookingService = inject(BookingPublicService);
   private cartService = inject(CartService);
   private flyToCart = inject(FlyToCartService);
-  private orderPref = inject(OrderPreferenceService);
   private hostEl = inject(ElementRef<HTMLElement>);
 
   loading = signal(true);
@@ -837,59 +706,19 @@ export class PortalCombinedComponent implements OnInit {
   );
 
   /** Services visible in the booking section. */
-  /**
-   * Services visible in the booking section. The customer's saved
-   * display order (per company, per section, in localStorage) is
-   * applied on top of the backend's natural order.
-   */
-  bookableServices = computed<Service[]>(() =>
-    applySavedOrder(this.services(), this.bookingOrder()),
-  );
+  /** Services visible in the booking section. */
+  bookableServices = computed<Service[]>(() => this.services());
   /** Services visible in the catalog section. */
-  catalogServices = computed<Service[]>(() =>
-    applySavedOrder(this.services(), this.catalogOrder()),
-  );
-  /**
-   * Products are shown in their saved display order if the customer
-   * has reordered them, otherwise in the backend's natural order.
-   */
-  productsForView = computed<Product[]>(() =>
-    applySavedOrder(this.products(), this.shopOrder()),
-  );
+  catalogServices = computed<Service[]>(() => this.services());
 
   /**
-   * Per-section saved orders, loaded from localStorage on init and
-   * kept in sync with the user's drag-and-drop. Each is a record
-   * keyed by item id. The three signals are independent because the
-   * user can reorder each tab separately.
+   * The display order is set by the owner in the CRM. The BFF returns
+   * services and products already sorted by display_order ASC, so we
+   * just pass them through. (If a company has multiple bookings in
+   * the future, we may need a more granular filter; for now the BFF
+   * gives us the right thing.)
    */
-  private bookingOrder = signal<string[] | null>(null);
-  private catalogOrder = signal<string[] | null>(null);
-  private shopOrder = signal<string[] | null>(null);
-
-  /**
-   * Whether each section currently has a saved custom order. Used to
-   * show or hide the "Reset order" button per tab.
-   */
-  hasCustomBookingOrder = computed(() => this.bookingOrder() !== null);
-  hasCustomCatalogOrder = computed(() => this.catalogOrder() !== null);
-  hasCustomShopOrder = computed(() => this.shopOrder() !== null);
-
-  /**
-   * Id of the item currently being dragged. Used to apply the
-   * "dragging" CSS class to the source card and the "drop-target"
-   * class to the hovered card. Empty string = no drag in progress.
-   */
-  private draggedId = signal<string>("");
-
-  /**
-   * Id of the item that the dragged card is hovering over. The card
-   * shows a visual placeholder (a colored line) on the side where
-   * the drop would land (before or after the hovered item).
-   */
-  private dropTargetId = signal<string>("");
-  /** "before" | "after" — which side of the target the drop lands on. */
-  private dropSide = signal<"before" | "after">("after");
+  productsForView = computed<Product[]>(() => this.products());
 
   ngOnInit() {
     const parentParams = this.route.parent?.snapshot.paramMap;
@@ -900,13 +729,6 @@ export class PortalCombinedComponent implements OnInit {
       this.loading.set(false);
       return;
     }
-    // Load any saved custom orders BEFORE the data lands, so the
-    // computed signals can apply them as soon as services/products
-    // are populated.
-    this.bookingOrder.set(this.orderPref.getOrder(slug, "booking"));
-    this.catalogOrder.set(this.orderPref.getOrder(slug, "catalog"));
-    this.shopOrder.set(this.orderPref.getOrder(slug, "shop"));
-
     this.bookingService.getServices(slug).subscribe({
       next: (res) => {
         applyBrandingColors(res.company?.primary_color, res.company?.secondary_color);
@@ -1002,167 +824,6 @@ export class PortalCombinedComponent implements OnInit {
     }
   }
 
-  // ─── Drag-and-drop reordering ──────────────────────────────────
-  // The customer can drag any service or product card to a new
-  // position within the same section. Order is persisted to
-  // localStorage via OrderPreferenceService. When the customer later
-  // wants a real CMS, this service is the only swap point.
-
-  /**
-   * Which list an item belongs to. Used by the drag handlers so they
-   * know which signal to read and which to write.
-   */
-  private sectionOfId(id: string): "booking" | "catalog" | "shop" | null {
-    if (this.bookableServices().some((s) => s.id === id)) return "booking";
-    if (this.catalogServices().some((s) => s.id === id)) return "catalog";
-    if (this.productsForView().some((p) => p.id === id)) return "shop";
-    return null;
-  }
-
-  /**
-   * True if this card is currently the drag source. Used to apply
-   * the .dragging CSS class.
-   */
-  isDragging(id: string): boolean {
-    return this.draggedId() === id;
-  }
-
-  /**
-   * True if this card is the hover target for the current drag.
-   * Used to apply the .drop-target CSS class.
-   */
-  isDropTarget(id: string): boolean {
-    return this.dropTargetId() === id;
-  }
-
-  /**
-   * Which side of the drop target the drop will land on. "before"
-   * means the dragged item will end up just before the target;
-   * "after" means just after. The template uses this to show a
-   * visual line on the appropriate edge.
-   */
-  dropIndicatorSide(): "before" | "after" {
-    return this.dropSide();
-  }
-
-  /** Beginning of a drag — record the source id and set drag data. */
-  onDragStart(event: DragEvent, id: string) {
-    this.draggedId.set(id);
-    if (event.dataTransfer) {
-      // Required for Firefox to actually start the drag.
-      event.dataTransfer.setData("text/plain", id);
-      // Move the ghost image slightly so the cursor doesn't hide it.
-      event.dataTransfer.effectAllowed = "move";
-    }
-  }
-
-  /**
-   * Allow drop by preventing default. We use the cursor's Y position
-   * within the hovered card to decide whether the drop should land
-   * before or after it.
-   */
-  onDragOver(event: DragEvent, hoveredId: string) {
-    if (!this.draggedId()) return;
-    event.preventDefault();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = "move";
-    }
-    if (this.dropTargetId() !== hoveredId) {
-      this.dropTargetId.set(hoveredId);
-    }
-    // Decide before/after based on which half of the card the cursor
-    // is over. The threshold is the vertical midpoint of the card.
-    const target = event.currentTarget;
-    if (target instanceof HTMLElement) {
-      const rect = target.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-      this.dropSide.set(event.clientY < midpoint ? "before" : "after");
-    }
-  }
-
-  /** Drop handler — reorder the items in the section. */
-  onDrop(event: DragEvent, targetId: string) {
-    if (!this.draggedId()) return;
-    event.preventDefault();
-    const draggedId = this.draggedId();
-
-    // Don't allow dropping onto itself.
-    if (draggedId === targetId) {
-      this.resetDragState();
-      return;
-    }
-
-    const section = this.sectionOfId(draggedId);
-    if (!section) {
-      this.resetDragState();
-      return;
-    }
-
-    // Reorder within the right section.
-    if (section === "booking") {
-      this.reorder(this.bookableServices(), this.bookingOrder, "booking", draggedId, targetId);
-    } else if (section === "catalog") {
-      this.reorder(this.catalogServices(), this.catalogOrder, "catalog", draggedId, targetId);
-    } else {
-      this.reorder(this.productsForView(), this.shopOrder, "shop", draggedId, targetId);
-    }
-    this.resetDragState();
-  }
-
-  /**
-   * Reorder `items` by moving `draggedId` to the position adjacent
-   * to `targetId` (the side determined by the last dragover). Persist
-   * the new order via the supplied order signal AND localStorage.
-   */
-  private reorder<T extends { id: string }>(
-    items: readonly T[],
-    orderSignal: { set: (ids: string[] | null) => void; (): string[] | null },
-    section: "booking" | "catalog" | "shop",
-    draggedId: string,
-    targetId: string,
-  ) {
-    const currentOrder =
-      orderSignal() ?? items.map((it) => it.id);
-    // Filter out the dragged id and reinsert at the target position.
-    const without = currentOrder.filter((id) => id !== draggedId);
-    const targetIdx = without.indexOf(targetId);
-    if (targetIdx < 0) {
-      // Target not in the order — fall back to appending at the end.
-      without.push(draggedId);
-    } else {
-      const insertAt = this.dropSide() === "before" ? targetIdx : targetIdx + 1;
-      without.splice(insertAt, 0, draggedId);
-    }
-    orderSignal.set(without);
-    if (this.slug()) {
-      this.orderPref.setOrder(this.slug(), section, without);
-    }
-  }
-
-  /** Clear drag state. Called on dragend regardless of outcome. */
-  onDragEnd() {
-    this.resetDragState();
-  }
-
-  private resetDragState() {
-    this.draggedId.set("");
-    this.dropTargetId.set("");
-    this.dropSide.set("after");
-  }
-
-  /**
-   * Clear the saved custom order for a section, returning the agenda
-   * to the backend's natural ordering on next render.
-   */
-  resetOrder(section: "booking" | "catalog" | "shop", event: Event) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!this.slug()) return;
-    this.orderPref.reset(this.slug(), section);
-    if (section === "booking") this.bookingOrder.set(null);
-    else if (section === "catalog") this.catalogOrder.set(null);
-    else this.shopOrder.set(null);
-  }
   private tabVisible(tab: "booking" | "catalog" | "shop"): boolean {
     if (tab === "booking") return this.bookingVisible();
     if (tab === "catalog") return this.catalogVisible();
