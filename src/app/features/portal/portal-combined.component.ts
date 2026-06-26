@@ -621,7 +621,7 @@ import {
         background: var(--color-surface);
         border: 1px solid var(--color-border);
         border-radius: 0.75rem;
-        padding: 1.5rem;
+        padding: 1.5rem 1.5rem 1.5rem 1.5rem;
         display: flex;
         flex-direction: column;
         gap: 1.25rem;
